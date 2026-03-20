@@ -1,159 +1,152 @@
 <template>
-  <el-card>
-    <template #header>
-      <div class="card-header">
-        <span>消费记账</span>
-        <el-button type="primary" @click="handleAdd">新增消费记录</el-button>
+  <el-card class="page-card">
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">消费记录</h2>
+        <p class="page-subtitle">支持分页查询、新增消费记录以及 CSV 导入。</p>
       </div>
-    </template>
+      <div class="toolbar-actions">
+        <el-upload :auto-upload="false" :show-file-list="false" accept=".csv" :on-change="handleImport">
+          <el-button>导入 CSV</el-button>
+        </el-upload>
+        <el-button type="primary" @click="openDialog">新增记录</el-button>
+      </div>
+    </div>
 
-    <el-table :data="tableData" border style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="流水号ID" width="100" />
-      <el-table-column label="会员姓名" width="120">
-        <template #default="scope">
-          {{ getMemberName(scope.row.member_id) }}
-        </template>
+    <div class="toolbar">
+      <el-input v-model="query.memberId" placeholder="会员 ID" clearable style="width: 200px" />
+      <el-input v-model="query.storeId" placeholder="门店 ID" clearable style="width: 200px" />
+      <el-button type="primary" @click="search">查询</el-button>
+      <el-button @click="reset">重置</el-button>
+    </div>
+
+    <el-table :data="rows" v-loading="loading" border>
+      <el-table-column prop="memberId" label="会员 ID" min-width="120" />
+      <el-table-column prop="storeId" label="门店 ID" min-width="120" />
+      <el-table-column label="消费金额" min-width="120">
+        <template #default="{ row }">¥ {{ formatCurrency(row.amount) }}</template>
       </el-table-column>
-      <el-table-column label="消费门店" width="150">
-        <template #default="scope">
-          {{ getStoreName(scope.row.store_id) }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="amount" label="消费金额(元)" width="120">
-        <template #default="scope">
-          <span style="color: #f56c6c; font-weight: bold;">￥{{ scope.row.amount }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="points_earned" label="获得积分" width="120">
-        <template #default="scope">
-          <span style="color: #67c23a;">+{{ scope.row.points_earned }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="consume_time" label="消费时间" min-width="160" />
+      <el-table-column prop="pointsEarned" label="本次积分" min-width="100" />
+      <el-table-column prop="consumeTime" label="消费时间" min-width="180" />
+      <el-table-column prop="createTime" label="创建时间" min-width="180" />
     </el-table>
 
-    <!-- 新增记账弹窗 -->
-    <el-dialog title="新增消费记账" v-model="dialogVisible" width="500px">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item label="选择会员" prop="member_id">
-          <el-select v-model="form.member_id" placeholder="请选择或搜索会员" filterable style="width: 100%">
-            <el-option
-              v-for="item in memberListOptions"
-              :key="item.id"
-              :label="`${item.name} (${item.phone})`"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="消费门店" prop="store_id">
-          <el-select v-model="form.store_id" placeholder="请选择消费门店" style="width: 100%">
-            <el-option
-              v-for="item in storeOptions"
-              :key="item.id"
-              :label="item.name"
-              :value="item.id"
-            />
-          </el-select>
-        </el-form-item>
-        <el-form-item label="消费金额" prop="amount">
-          <el-input-number v-model="form.amount" :min="0.01" :precision="2" :step="10" style="width: 100%" />
+    <div class="pagination">
+      <el-pagination
+        v-model:current-page="query.pageNum"
+        v-model:page-size="query.pageSize"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @current-change="loadData"
+        @size-change="loadData"
+      />
+    </div>
+
+    <el-dialog v-model="dialogVisible" title="新增消费记录" width="520px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+        <el-form-item label="会员 ID" prop="memberId"><el-input v-model="form.memberId" /></el-form-item>
+        <el-form-item label="门店 ID" prop="storeId"><el-input v-model="form.storeId" /></el-form-item>
+        <el-form-item label="消费金额" prop="amount"><el-input-number v-model="form.amount" :min="0.01" :precision="2" style="width: 100%" /></el-form-item>
+        <el-form-item label="消费时间">
+          <el-date-picker
+            v-model="form.consumeTime"
+            type="datetime"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            style="width: 100%"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitForm">确定记账</el-button>
-        </span>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" :loading="submitting" @click="submit">保存</el-button>
       </template>
     </el-dialog>
   </el-card>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getConsumptions, addConsumption } from '../../api/member'
+import { createConsumption, getConsumptions, importConsumptions } from '../../api/member'
+import { formatCurrency, normalizePageData } from '../../utils/format'
 
 const loading = ref(false)
-const tableData = ref([])
-
+const submitting = ref(false)
 const dialogVisible = ref(false)
-const formRef = ref(null)
+const formRef = ref()
+const rows = ref([])
+const total = ref(0)
 
-const form = reactive({
-  member_id: '',
-  store_id: 1, // 默认门店
-  amount: 0,
-  order_no: '',
-  remark: ''
+const query = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  memberId: '',
+  storeId: ''
 })
 
+const createDefaultForm = () => ({
+  memberId: '',
+  storeId: '',
+  amount: 0,
+  consumeTime: ''
+})
+
+const form = reactive(createDefaultForm())
+
 const rules = {
-  member_id: [{ required: true, message: '请选择或输入会员ID', trigger: 'blur' }],
-  amount: [{ required: true, message: '请输入消费金额', trigger: 'blur' }],
-  order_no: [{ required: true, message: '请输入订单号', trigger: 'blur' }]
+  memberId: [{ required: true, message: '请输入会员 ID', trigger: 'blur' }],
+  storeId: [{ required: true, message: '请输入门店 ID', trigger: 'blur' }],
+  amount: [{ required: true, message: '请输入消费金额', trigger: 'change' }]
 }
 
 const loadData = async () => {
   loading.value = true
   try {
-    const res = await getConsumptions()
-    if (res.code === 200) {
-      tableData.value = res.data
-    }
-  } catch (error) {
-    ElMessage.error('获取消费记录失败')
+    const response = await getConsumptions(query)
+    const page = normalizePageData(response.data)
+    rows.value = page.records
+    total.value = page.total
   } finally {
     loading.value = false
   }
 }
 
-const getMemberName = (id) => {
-  // 此处原逻辑为根据ID换取名字，实际业务应由后端直接返回会员名称或通过联查
-  // 为简化展示，返回固定格式
-  return `会员-${id}`
-}
-
-const getStoreName = (id) => {
-  return id === 1 ? '总店' : `门店-${id}`
-}
-
-const handleAdd = () => {
-  Object.assign(form, {
-    member_id: '',
-    store_id: 1,
-    amount: 0,
-    order_no: 'ORD' + Date.now(),
-    remark: ''
-  })
-  dialogVisible.value = true
-  if (formRef.value) formRef.value.clearValidate()
-}
-
-const submitForm = () => {
-  formRef.value.validate(async valid => {
-    if (valid) {
-      try {
-        const res = await addConsumption(form)
-        ElMessage.success(`记账成功！赠送积分: ${res.data.earnedPoints}`)
-        dialogVisible.value = false
-        loadData()
-      } catch (error) {
-        ElMessage.error(error.message || '记账失败')
-      }
-    }
-  })
-}
-
-onMounted(() => {
+const search = () => {
+  query.pageNum = 1
   loadData()
-})
-</script>
-
-<style scoped>
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
-</style>
+
+const reset = () => {
+  Object.assign(query, { pageNum: 1, pageSize: 10, memberId: '', storeId: '' })
+  loadData()
+}
+
+const openDialog = () => {
+  Object.assign(form, createDefaultForm())
+  dialogVisible.value = true
+}
+
+const submit = async () => {
+  const valid = await formRef.value.validate().catch(() => false)
+  if (!valid) return
+  submitting.value = true
+  try {
+    await createConsumption(form)
+    ElMessage.success('消费记录已创建')
+    dialogVisible.value = false
+    loadData()
+  } finally {
+    submitting.value = false
+  }
+}
+
+const handleImport = async (file) => {
+  const formData = new FormData()
+  formData.append('file', file.raw)
+  await importConsumptions(formData)
+  ElMessage.success('消费记录导入成功')
+  loadData()
+}
+
+onMounted(loadData)
+</script>

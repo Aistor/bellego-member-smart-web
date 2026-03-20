@@ -1,112 +1,95 @@
 <template>
-  <el-card>
-    <template #header>
-      <div class="card-header">
-        <span>会员持券总览</span>
+  <el-card class="page-card">
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">会员优惠券</h2>
+        <p class="page-subtitle">分页查看会员领券记录，并支持核销。</p>
       </div>
-    </template>
+    </div>
 
-    <el-table :data="tableData" border style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="记录ID" width="80" />
-      <el-table-column label="会员姓名" width="120">
-        <template #default="scope">
-          {{ getMemberName(scope.row.member_id) }}
-        </template>
+    <div class="toolbar">
+      <el-input v-model="query.memberId" placeholder="会员 ID" clearable style="width: 220px" />
+      <el-select v-model="query.status" clearable placeholder="优惠券状态" style="width: 150px">
+        <el-option label="未使用" :value="0" />
+        <el-option label="已使用" :value="1" />
+      </el-select>
+      <el-button type="primary" @click="search">查询</el-button>
+      <el-button @click="reset">重置</el-button>
+    </div>
+
+    <el-table :data="rows" v-loading="loading" border>
+      <el-table-column prop="memberId" label="会员 ID" min-width="120" />
+      <el-table-column prop="couponId" label="优惠券 ID" min-width="120" />
+      <el-table-column prop="code" label="券码" min-width="160" />
+      <el-table-column label="状态" min-width="90">
+        <template #default="{ row }">{{ getCouponStatusLabel(row.status) }}</template>
       </el-table-column>
-      <el-table-column label="卡券名称" min-width="150">
-        <template #default="scope">
-          {{ getCouponName(scope.row.coupon_id) }}
-        </template>
-      </el-table-column>
-      <el-table-column prop="code" label="核销编码" width="160">
-        <template #default="scope">
-          <el-tag type="info">{{ scope.row.code }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column label="状态" width="100">
-        <template #default="scope">
-          <el-tag v-if="scope.row.status === 0" type="success">未使用</el-tag>
-          <el-tag v-else-if="scope.row.status === 1" type="info">已使用</el-tag>
-          <el-tag v-else type="danger">已过期</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="receive_time" label="领取时间" width="160" />
-      <el-table-column prop="use_time" label="使用时间" width="160">
-        <template #default="scope">
-          {{ scope.row.use_time || '-' }}
-        </template>
-      </el-table-column>
-      <el-table-column label="操作" width="120" fixed="right">
-        <template #default="scope">
-          <el-button
-            size="small"
-            type="primary"
-            :disabled="scope.row.status !== 0"
-            @click="handleUse(scope.row)"
-          >
-            模拟核销
-          </el-button>
+      <el-table-column prop="receiveTime" label="领取时间" min-width="180" />
+      <el-table-column prop="useTime" label="使用时间" min-width="180" />
+      <el-table-column prop="expireTime" label="过期时间" min-width="180" />
+      <el-table-column label="操作" min-width="100">
+        <template #default="{ row }">
+          <el-button link type="primary" :disabled="row.status === 1" @click="consume(row.id)">核销</el-button>
         </template>
       </el-table-column>
     </el-table>
+
+    <div class="pagination">
+      <el-pagination
+        v-model:current-page="query.pageNum"
+        v-model:page-size="query.pageSize"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @current-change="loadData"
+        @size-change="loadData"
+      />
+    </div>
   </el-card>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { ElMessage, ElMessageBox } from 'element-plus'
+import { onMounted, reactive, ref } from 'vue'
+import { ElMessage } from 'element-plus'
 import { getMemberCoupons, useMemberCoupon } from '../../api/marketing'
+import { getCouponStatusLabel, normalizePageData } from '../../utils/format'
 
 const loading = ref(false)
-const tableData = ref([])
+const rows = ref([])
+const total = ref(0)
+const query = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  memberId: '',
+  status: undefined
+})
 
 const loadData = async () => {
   loading.value = true
   try {
-    const res = await getMemberCoupons()
-    if (res.code === 200) {
-      tableData.value = res.data
-    }
-  } catch (error) {
-    ElMessage.error('获取会员卡券记录失败')
+    const response = await getMemberCoupons(query)
+    const page = normalizePageData(response.data)
+    rows.value = page.records
+    total.value = page.total
   } finally {
     loading.value = false
   }
 }
 
-const getMemberName = (id) => {
-  // 原本从 memberList 取，现改为前后端解耦后由接口直接返回
-  return `会员-${id}`
-}
-
-const getCouponName = (id) => {
-  // 原本从 couponList 取，现改为接口直接返回
-  return `卡券-${id}`
-}
-
-const handleUse = (row) => {
-  ElMessageBox.confirm(`确认核销卡券码 [${row.code}] 吗？`, '核销确认', {
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await useMemberCoupon(row.id)
-      ElMessage.success('核销成功')
-      loadData()
-    } catch (error) {
-      ElMessage.error(error.message || '核销失败')
-    }
-  }).catch(() => {})
-}
-
-onMounted(() => {
+const search = () => {
+  query.pageNum = 1
   loadData()
-})
-</script>
-
-<style scoped>
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
-</style>
+
+const reset = () => {
+  Object.assign(query, { pageNum: 1, pageSize: 10, memberId: '', status: undefined })
+  loadData()
+}
+
+const consume = async (id) => {
+  await useMemberCoupon(id)
+  ElMessage.success('核销成功')
+  loadData()
+}
+
+onMounted(loadData)
+</script>

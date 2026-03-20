@@ -1,65 +1,78 @@
 <template>
-  <el-card>
-    <template #header>
-      <div class="card-header">
-        <span>系统操作日志</span>
+  <el-card class="page-card">
+    <div class="page-header">
+      <div>
+        <h2 class="page-title">操作日志</h2>
+        <p class="page-subtitle">支持按操作人和模块查询日志。</p>
       </div>
-    </template>
+    </div>
 
-    <el-table :data="tableData" border style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="日志ID" width="80" />
-      <el-table-column prop="operator_name" label="操作人" width="120" />
-      <el-table-column prop="ip" label="操作IP" width="150" />
-      <el-table-column prop="module" label="所属模块" width="120">
-        <template #default="scope">
-          <el-tag type="info">{{ scope.row.module }}</el-tag>
-        </template>
-      </el-table-column>
-      <el-table-column prop="operation" label="操作动作" width="150" />
-      <el-table-column prop="detail" label="操作明细 (JSON)" min-width="250" show-overflow-tooltip />
-      <el-table-column prop="create_time" label="操作时间" width="180" />
+    <div class="toolbar">
+      <el-input v-model="query.operatorName" placeholder="操作人姓名" clearable style="width: 200px" />
+      <el-input v-model="query.module" placeholder="操作模块" clearable style="width: 200px" />
+      <el-button type="primary" @click="search">查询</el-button>
+      <el-button @click="reset">重置</el-button>
+    </div>
+
+    <el-table :data="rows" v-loading="loading" border>
+      <el-table-column prop="operatorId" label="操作人 ID" min-width="120" />
+      <el-table-column prop="operatorName" label="操作人" min-width="120" />
+      <el-table-column prop="module" label="模块" min-width="120" />
+      <el-table-column prop="operation" label="操作名称" min-width="140" />
+      <el-table-column prop="detail" label="详情" min-width="260" show-overflow-tooltip />
+      <el-table-column prop="ip" label="IP 地址" min-width="120" />
+      <el-table-column prop="createTime" label="创建时间" min-width="180" />
     </el-table>
+
+    <div class="pagination">
+      <el-pagination
+        v-model:current-page="query.pageNum"
+        v-model:page-size="query.pageSize"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @current-change="loadData"
+        @size-change="loadData"
+      />
+    </div>
   </el-card>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
-import { getOperationLogs } from '../../api/system'
-import { ElMessage } from 'element-plus'
+import { onMounted, reactive, ref } from 'vue'
+import { getLogs } from '../../api/system'
+import { normalizePageData } from '../../utils/format'
 
 const loading = ref(false)
-const tableData = ref([])
+const rows = ref([])
+const total = ref(0)
+const query = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  operatorName: '',
+  module: ''
+})
 
 const loadData = async () => {
   loading.value = true
   try {
-    const res = await getOperationLogs()
-    if (res.code === 200) {
-      tableData.value = res.data
-    }
-  } catch (error) {
-    ElMessage.error('获取日志列表失败')
+    const response = await getLogs(query)
+    const page = normalizePageData(response.data)
+    rows.value = page.records
+    total.value = page.total
   } finally {
     loading.value = false
   }
 }
 
-const getTagType = (action) => {
-  if (action === 'POST') return 'success'
-  if (action === 'PUT') return 'warning'
-  if (action === 'DELETE') return 'danger'
-  return 'info'
-}
-
-onMounted(() => {
+const search = () => {
+  query.pageNum = 1
   loadData()
-})
-</script>
-
-<style scoped>
-.card-header {
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
 }
-</style>
+
+const reset = () => {
+  Object.assign(query, { pageNum: 1, pageSize: 10, operatorName: '', module: '' })
+  loadData()
+}
+
+onMounted(loadData)
+</script>
