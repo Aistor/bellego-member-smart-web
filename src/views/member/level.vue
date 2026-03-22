@@ -3,12 +3,11 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">会员等级</h2>
-        <p class="page-subtitle">维护等级规则、折扣率和积分倍率。</p>
       </div>
       <el-button type="primary" @click="openDialog()">新增等级</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border>
+    <el-table :data="rows" v-loading="loading" border stripe>
       <el-table-column prop="name" label="等级名称" min-width="140" />
       <el-table-column prop="level" label="等级值" min-width="100" />
       <el-table-column prop="minPoints" label="最低积分" min-width="120" />

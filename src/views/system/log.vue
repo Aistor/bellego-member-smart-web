@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">操作日志</h2>
-        <p class="page-subtitle">支持按操作人和模块查询日志。</p>
       </div>
     </div>
 
@@ -14,7 +13,7 @@
       <el-button @click="reset">重置</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border>
+    <el-table :data="rows" v-loading="loading" border stripe show-overflow-tooltip>
       <el-table-column prop="operatorId" label="操作人 ID" min-width="120" />
       <el-table-column prop="operatorName" label="操作人" min-width="120" />
       <el-table-column prop="module" label="模块" min-width="120" />

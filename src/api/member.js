@@ -9,6 +9,7 @@ export const importMembers = (formData) =>
   request.post('/members/import', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }
   })
+export const getLevelCount = () => request.get(`/members/levelCount`)
 
 export const getLevels = () => request.get('/levels')
 export const getLevelDetail = (id) => request.get(`/levels/${id}`)
@@ -20,6 +21,7 @@ export const updateLevelStatus = (id, status) => request.put(`/levels/${id}/stat
 export const getConsumptions = (params) => request.get('/consumptions', { params })
 export const getConsumptionDetail = (id) => request.get(`/consumptions/${id}`)
 export const createConsumption = (data) => request.post('/consumptions', data)
+export const getRecentConsumptions = () => request.get('/consumptions/recent')
 export const importConsumptions = (formData) =>
   request.post('/consumptions/import', formData, {
     headers: { 'Content-Type': 'multipart/form-data' }

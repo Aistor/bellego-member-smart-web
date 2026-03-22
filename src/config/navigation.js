@@ -63,7 +63,7 @@ export const navigationGroups = [
     ]
   },
   {
-    title: '分析看板',
+    title: '会员分析',
     items: [
       {
         path: '/analysis/rfm',

@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">优惠券管理</h2>
-        <p class="page-subtitle">维护优惠券模板并支持定向发放或全量发放。</p>
       </div>
       <el-button type="primary" @click="openDialog()">新增优惠券</el-button>
     </div>
@@ -18,7 +17,7 @@
       <el-button @click="reset">重置</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border>
+    <el-table :data="rows" v-loading="loading" border stripe show-overflow-tooltip>
       <el-table-column prop="name" label="名称" min-width="160" />
       <el-table-column prop="type" label="类型" min-width="90" />
       <el-table-column prop="couponValue" label="优惠值" min-width="100" />

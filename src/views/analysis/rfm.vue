@@ -3,14 +3,13 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">RFM 分析</h2>
-        <p class="page-subtitle">展示最近消费、消费频次和消费金额的会员分层情况。</p>
       </div>
       <el-button :loading="loading" @click="loadData">刷新</el-button>
     </div>
 
     <div ref="chartRef" class="chart"></div>
 
-    <el-table :data="segments" v-loading="loading" border>
+    <el-table :data="segments" v-loading="loading" border stripe show-overflow-tooltip>
       <el-table-column prop="memberId" label="会员 ID" min-width="120" />
       <el-table-column prop="memberName" label="会员姓名" min-width="120" />
       <el-table-column prop="recencyDays" label="最近消费天数" min-width="120" />

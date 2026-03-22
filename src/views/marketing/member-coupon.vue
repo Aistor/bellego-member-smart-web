@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">会员优惠券</h2>
-        <p class="page-subtitle">分页查看会员领券记录，并支持核销。</p>
       </div>
     </div>
 
@@ -17,7 +16,7 @@
       <el-button @click="reset">重置</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border>
+    <el-table :data="rows" v-loading="loading" border stripe show-overflow-tooltip>
       <el-table-column prop="memberId" label="会员 ID" min-width="120" />
       <el-table-column prop="couponId" label="优惠券 ID" min-width="120" />
       <el-table-column prop="code" label="券码" min-width="160" />

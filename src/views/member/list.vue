@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">会员列表</h2>
-        <p class="page-subtitle">支持分页查询、新增、编辑、状态切换与 CSV 导入。</p>
       </div>
       <div class="toolbar-actions">
         <el-upload :auto-upload="false" :show-file-list="false" accept=".csv" :on-change="handleImport">
@@ -26,22 +25,26 @@
       <el-button @click="reset">重置</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border>
-      <el-table-column prop="cardNumber" label="会员卡号" min-width="150" />
-      <el-table-column prop="name" label="姓名" min-width="120" />
-      <el-table-column prop="phone" label="手机号" min-width="140" />
-      <el-table-column label="性别" min-width="80">
+    <el-table :data="rows" v-loading="loading" border stripe show-overflow-tooltip>
+      <el-table-column prop="id" label="会员 ID" min-width="160" />
+      <el-table-column prop="name" label="姓名" min-width="100" />
+      <el-table-column prop="cardNumber" label="会员卡号" min-width="120" />
+      <el-table-column prop="phone" label="手机号" min-width="120" />
+      <el-table-column label="性别" min-width="70">
         <template #default="{ row }">{{ getGenderLabel(row.gender) }}</template>
       </el-table-column>
       <el-table-column label="等级" min-width="120">
         <template #default="{ row }">{{ levelNameMap[row.levelId] || '-' }}</template>
       </el-table-column>
-      <el-table-column prop="totalPoints" label="总积分" min-width="100" />
-      <el-table-column label="累计消费" min-width="120">
+      <el-table-column prop="totalPoints" label="总积分" min-width="90" />
+      <el-table-column label="累计消费" min-width="110">
         <template #default="{ row }">¥ {{ formatCurrency(row.totalConsumption) }}</template>
       </el-table-column>
-      <el-table-column prop="lastConsumeTime" label="最后消费时间" min-width="180" />
-      <el-table-column label="状态" min-width="90">
+      <el-table-column prop="lastConsumeTime" label="最后消费时间" min-width="180" >
+        <template #default="{ row }">{{ row.lastConsumeTime || '-' }}</template>
+      </el-table-column>
+      <el-table-column prop="createTime" label="创建时间" min-width="180" />
+      <el-table-column label="状态" fixed="right" min-width="70">
         <template #default="{ row }">
           <el-switch
             :model-value="row.status"
@@ -51,7 +54,6 @@
           />
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" min-width="180" />
       <el-table-column label="操作" fixed="right" min-width="120">
         <template #default="{ row }">
           <el-button link type="primary" @click="openDialog(row)">编辑</el-button>
@@ -73,7 +75,7 @@
     <el-dialog v-model="dialogVisible" :title="editingId ? '编辑会员' : '新增会员'" width="560px">
       <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="等级" prop="levelId">
-          <el-select v-model="form.levelId" clearable placeholder="不传则走默认等级" style="width: 100%">
+          <el-select v-model="form.levelId" clearable placeholder="默认为普通会员" style="width: 100%">
             <el-option v-for="item in levels" :key="item.id" :label="item.name" :value="item.id" />
           </el-select>
         </el-form-item>

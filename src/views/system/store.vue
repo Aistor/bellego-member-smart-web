@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">门店管理</h2>
-        <p class="page-subtitle">对接门店分页、增删改和状态维护接口。</p>
       </div>
       <el-button type="primary" @click="openDialog()">新增门店</el-button>
     </div>
@@ -18,17 +17,17 @@
       <el-button @click="reset">重置</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border>
-      <el-table-column prop="name" label="门店名称" min-width="140" />
+    <el-table :data="rows" v-loading="loading" border stripe show-overflow-tooltip>
+      <el-table-column prop="name" label="门店名称" min-width="160" />
       <el-table-column prop="code" label="门店编码" min-width="120" />
-      <el-table-column prop="address" label="地址" min-width="220" />
+      <el-table-column prop="address" label="地址" min-width="240" />
       <el-table-column prop="phone" label="电话" min-width="140" />
-      <el-table-column label="状态" min-width="90">
+      <el-table-column prop="createTime" label="创建时间" min-width="180" />
+      <el-table-column label="状态" min-width="70">
         <template #default="{ row }">
           <el-switch :model-value="row.status" :active-value="1" :inactive-value="0" @change="(value) => changeStatus(row, value)" />
         </template>
       </el-table-column>
-      <el-table-column prop="createTime" label="创建时间" min-width="180" />
       <el-table-column label="操作" fixed="right" min-width="160">
         <template #default="{ row }">
           <el-button link type="primary" @click="openDialog(row)">编辑</el-button>

@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">角色管理</h2>
-        <p class="page-subtitle">支持角色增删改和权限分配。</p>
       </div>
       <el-button type="primary" @click="openDialog()">新增角色</el-button>
     </div>
@@ -14,7 +13,7 @@
       <el-button @click="reset">重置</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border>
+    <el-table :data="rows" v-loading="loading" border stripe show-overflow-tooltip>
       <el-table-column prop="name" label="角色名称" min-width="140" />
       <el-table-column prop="code" label="角色编码" min-width="140" />
       <el-table-column prop="description" label="角色描述" min-width="240" />

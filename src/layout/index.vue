@@ -30,7 +30,6 @@
       <header class="topbar">
         <div>
           <div class="topbar-title">{{ route.meta.title || '后台管理' }}</div>
-          <div class="topbar-subtitle">根据接口文档对接的管理端页面</div>
         </div>
         <div class="topbar-actions">
           <el-tag type="info" effect="plain">{{ userStore.displayName }}</el-tag>

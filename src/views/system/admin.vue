@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">管理员管理</h2>
-        <p class="page-subtitle">支持管理员增删改、状态切换和角色分配。</p>
       </div>
       <el-button type="primary" @click="openDialog()">新增管理员</el-button>
     </div>
@@ -18,7 +17,7 @@
       <el-button @click="reset">重置</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border>
+    <el-table :data="rows" v-loading="loading" border stripe show-overflow-tooltip>
       <el-table-column prop="username" label="用户名" min-width="140" />
       <el-table-column prop="realName" label="真实姓名" min-width="120" />
       <el-table-column prop="phone" label="手机号" min-width="140" />

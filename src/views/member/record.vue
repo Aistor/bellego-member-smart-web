@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">消费记录</h2>
-        <p class="page-subtitle">支持分页查询、新增消费记录以及 CSV 导入。</p>
       </div>
       <div class="toolbar-actions">
         <el-upload :auto-upload="false" :show-file-list="false" accept=".csv" :on-change="handleImport">
@@ -20,7 +19,7 @@
       <el-button @click="reset">重置</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border>
+    <el-table :data="rows" v-loading="loading" border stripe show-overflow-tooltip>
       <el-table-column prop="memberId" label="会员 ID" min-width="120" />
       <el-table-column prop="storeId" label="门店 ID" min-width="120" />
       <el-table-column label="消费金额" min-width="120">

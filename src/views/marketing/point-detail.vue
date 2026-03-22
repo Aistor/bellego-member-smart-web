@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">积分明细</h2>
-        <p class="page-subtitle">分页查看积分变更记录，并支持 CSV 导入。</p>
       </div>
       <el-upload :auto-upload="false" :show-file-list="false" accept=".csv" :on-change="handleImport">
         <el-button>导入 CSV</el-button>
@@ -17,16 +16,16 @@
       <el-button @click="reset">重置</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border>
+    <el-table :data="rows" v-loading="loading" border stripe show-overflow-tooltip>
       <el-table-column prop="memberId" label="会员 ID" min-width="120" />
       <el-table-column label="类型" min-width="120">
         <template #default="{ row }">{{ getPointTypeLabel(row.type) }}</template>
       </el-table-column>
       <el-table-column prop="points" label="本次变动" min-width="100" />
       <el-table-column prop="balance" label="变动后余额" min-width="110" />
-      <el-table-column prop="source" label="来源" min-width="120" />
+      <el-table-column prop="source" label="来源" min-width="80" />
       <el-table-column prop="sourceId" label="来源业务 ID" min-width="120" />
-      <el-table-column prop="remark" label="备注" min-width="160" />
+      <el-table-column prop="remark" label="备注" min-width="200" />
       <el-table-column prop="createTime" label="创建时间" min-width="180" />
     </el-table>
 

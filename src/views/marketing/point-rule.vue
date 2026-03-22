@@ -3,18 +3,23 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">积分规则</h2>
-        <p class="page-subtitle">支持配置适用等级、参与门槛和单次积分上限。</p>
       </div>
       <el-button type="primary" @click="openDialog()">新增规则</el-button>
     </div>
 
-    <el-table :data="rows" v-loading="loading" border>
+    <el-table :data="rows" v-loading="loading" border stripe show-overflow-tooltip>
       <el-table-column prop="ruleName" label="规则名称" min-width="160" />
-      <el-table-column prop="ruleType" label="规则类型" min-width="100" />
+      <el-table-column prop="ruleType" label="规则类型" min-width="100">
+        <template #default="{ row }">
+          <span v-if="row.ruleType === 1">消费积分</span>
+          <span v-else-if="row.ruleType === 2">签到积分</span>
+          <span v-else>其他</span>
+        </template>
+      </el-table-column>
       <el-table-column prop="applicableLevelId" label="适用等级 ID" min-width="130" />
-      <el-table-column prop="pointsPerUnit" label="每单位金额积分数" min-width="150" />
-      <el-table-column prop="minAmount" label="最低金额" min-width="100" />
-      <el-table-column prop="maxPoints" label="单次上限" min-width="100" />
+      <el-table-column prop="pointsPerUnit" label="每单位金额积分数" min-width="100" />
+      <el-table-column prop="minAmount" label="最低金额" min-width="80" />
+      <el-table-column prop="maxPoints" label="单次上限" min-width="80" />
       <el-table-column label="状态" min-width="90">
         <template #default="{ row }">
           <el-switch :model-value="row.status" :active-value="1" :inactive-value="0" @change="(value) => changeStatus(row, value)" />

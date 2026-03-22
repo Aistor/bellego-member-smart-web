@@ -3,7 +3,6 @@
     <div class="page-header">
       <div>
         <h2 class="page-title">权限管理</h2>
-        <p class="page-subtitle">以树形结构维护菜单和按钮权限。</p>
       </div>
       <el-button type="primary" @click="openDialog()">新增权限</el-button>
     </div>
