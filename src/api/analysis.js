@@ -48,15 +48,53 @@ export async function getRfmData() {
   const result = await request.get('/v1/analysis/rfm')
   const segments = result.data?.segments || []
 
+  const segmentSummaryMap = new Map()
+  segments.forEach((item) => {
+    const label = getSegmentLabel(item)
+    const summary = segmentSummaryMap.get(label) || {
+      label,
+      count: 0,
+      avgRecency: 0,
+      avgFrequency: 0,
+      avgMonetary: 0
+    }
+
+    summary.count += 1
+    summary.avgRecency += Number(item.recencyDays || 0)
+    summary.avgFrequency += Number(item.frequency || 0)
+    summary.avgMonetary += Number(item.monetary || 0)
+    segmentSummaryMap.set(label, summary)
+  })
+
+  const segmentSummary = [...segmentSummaryMap.values()]
+    .map((item) => ({
+      ...item,
+      avgRecency: item.count ? Math.round(item.avgRecency / item.count) : 0,
+      avgFrequency: item.count ? Number((item.avgFrequency / item.count).toFixed(1)) : 0,
+      avgMonetary: item.count ? Number((item.avgMonetary / item.count).toFixed(2)) : 0
+    }))
+    .sort((a, b) => b.count - a.count)
+
   return {
     ...result,
-    data: segments.map((item) => [
-      Number(item.recencyDays || 0),
-      Number(item.frequency || 0),
-      Number(item.monetary || 0),
-      item.memberName || item.memberId || '未知会员',
-      getSegmentLabel(item)
-    ])
+    data: {
+      totalMembers: Number(result.data?.totalMembers || segments.length || 0),
+      segments: segments.map((item) => ({
+        ...item,
+        segmentLabel: getSegmentLabel(item)
+      })),
+      scatterData: segments.map((item) => [
+        Number(item.recencyDays || 0),
+        Number(item.frequency || 0),
+        Number(item.monetary || 0),
+        item.memberName || item.memberId || '未知会员',
+        getSegmentLabel(item),
+        Number(item.rLevel || 0),
+        Number(item.fLevel || 0),
+        Number(item.mLevel || 0)
+      ]),
+      segmentSummary
+    }
   }
 }
 
