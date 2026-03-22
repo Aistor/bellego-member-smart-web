@@ -315,7 +315,7 @@ async function loadData() {
   totalMembers.value = Number(result.data?.totalMembers || 0)
   segments.value = result.data?.segments || []
   segmentSummary.value = result.data?.segmentSummary || []
-  availableMonths.value = (result.data?.availableMonths || []).slice().reverse();
+  availableMonths.value = (result.data?.availableMonths || []);
 
   if (!segmentSummary.value.some((item) => item.label === activeSegment.value)) {
     activeSegment.value = 'ALL'

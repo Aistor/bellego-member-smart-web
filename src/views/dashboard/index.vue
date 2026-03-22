@@ -75,9 +75,9 @@
             </div>
           </template>
           <el-table :data="recentRecords" border style="width: 100%" show-overflow-tooltip stripe>
-            <el-table-column prop="id" label="记录ID" width="100" />
-            <el-table-column prop="memberName" label="会员" width="160" />
-            <el-table-column prop="storeName" label="门店" width="160" />
+            <el-table-column prop="id" label="记录ID" width="160" />
+            <el-table-column prop="memberName" label="会员名称" width="120" />
+            <el-table-column prop="storeName" label="门店" width="200" />
             <el-table-column prop="amount" label="消费金额">
               <template #default="{ row }">
                 <span class="expense-text">￥{{ row.amount }}</span>

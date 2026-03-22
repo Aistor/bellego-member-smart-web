@@ -9,7 +9,7 @@
         </div>
       </div>
 
-      <el-scrollbar>
+      <el-scrollbar class="aside-scrollbar">
         <el-menu
           router
           :default-active="$route.path"
@@ -181,6 +181,14 @@ async function handleCommand(command) {
 .layout-menu {
   border-right: 0;
   padding: 8px 10px 24px;
+}
+
+.aside-scrollbar {
+  height: calc(100vh - 82px);
+}
+
+:deep(.aside-scrollbar .el-scrollbar__bar) {
+  display: none;
 }
 
 .layout-header {

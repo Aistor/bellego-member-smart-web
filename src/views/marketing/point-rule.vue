@@ -120,14 +120,16 @@ const levelName = (id) => levelOptions.value.find((item) => item.id === id)?.nam
 
 async function loadOptions() {
   const result = await getLevels()
-  levelOptions.value = result.data || []
+  const data = result.data
+  levelOptions.value = Array.isArray(data) ? data : data?.records || []
 }
 
 async function loadData() {
   loading.value = true
   try {
     const result = await getPointRules()
-    tableData.value = result.data || []
+    const data = result.data
+    tableData.value = Array.isArray(data) ? data : data?.records || []
   } finally {
     loading.value = false
   }

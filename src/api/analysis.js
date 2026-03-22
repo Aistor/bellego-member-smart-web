@@ -66,6 +66,16 @@ function getPeriodMonthList(dateList) {
   return [...new Set(dateList.filter(Boolean).map((date) => String(date).slice(0, 7)))].sort().reverse()
 }
 
+function buildLifecycleTrendSeries(trendMap, categories) {
+  return categories.map((date) => {
+    const rawValue = trendMap?.[date]
+    if (rawValue === undefined || rawValue === null || rawValue === '') {
+      return null
+    }
+    return Number(rawValue || 0)
+  })
+}
+
 function getSegmentLabel(item) {
   const r = Number(item.rLevel || 0)
   const f = Number(item.fLevel || 0)
@@ -202,17 +212,25 @@ export async function getRfmData(selectedMonth = 'ALL') {
   }
 }
 
-export async function getLifecycleData(period = 'DAY') {
+export async function getLifecycleData(period = 'DAY', month = '') {
   const result = await request.get('/v1/analysis/lifecycle', {
-    params: { period }
+    params: {
+      period,
+      ...(month ? { month } : {})
+    }
   })
   const trendEntries = Object.entries(result.data?.newTrend || {})
   const categories = trendEntries.map(([date]) => date)
   const newMember = trendEntries.map(([, count]) => Number(count || 0))
+  const silentMember = buildLifecycleTrendSeries(result.data?.silentTrend || {}, categories)
+  const lostMember = buildLifecycleTrendSeries(result.data?.lostTrend || {}, categories)
   const activeCount = Number(result.data?.activeCount || 0)
   const lostCount = Number(result.data?.lostCount || 0)
   const totalMembers = Number(result.data?.totalMembers || 0)
-  const silentCount = Math.max(totalMembers - activeCount - lostCount, 0)
+  const silentCount = Number(
+    result.data?.silentCount ?? Math.max(totalMembers - activeCount - lostCount, 0)
+  )
+  const snapshotMonth = result.data?.month || null
 
   return {
     ...result,
@@ -221,16 +239,16 @@ export async function getLifecycleData(period = 'DAY') {
       activeCount,
       lostCount,
       silentCount,
+      month: snapshotMonth,
       newMemberTotal: newMember.reduce((sum, value) => sum + value, 0),
       availableMonths: getPeriodMonthList(categories),
       trend: {
         categories,
         newMember,
-        activeMember: newMember.map(() => activeCount),
-        churnMember: newMember.map(() => lostCount)
+        silentMember,
+        lostMember
       },
       distribution: [
-        { name: '新增', value: newMember.reduce((sum, value) => sum + value, 0) },
         { name: '活跃', value: activeCount },
         { name: '沉默', value: silentCount },
         { name: '流失', value: lostCount }
