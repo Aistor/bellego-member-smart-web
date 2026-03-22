@@ -113,6 +113,11 @@ export async function getLifecycleData(period = 'DAY') {
   return {
     ...result,
     data: {
+      totalMembers,
+      activeCount,
+      lostCount,
+      silentCount,
+      newMemberTotal: newMember.reduce((sum, value) => sum + value, 0),
       trend: {
         categories,
         newMember,
