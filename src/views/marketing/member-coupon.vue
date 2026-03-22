@@ -30,11 +30,9 @@
     </el-form>
 
     <el-table v-loading="loading" :data="tableData" border show-overflow-tooltip stripe>
-      <el-table-column prop="id" label="记录ID" width="120" />
-      <el-table-column label="会员名称" min-width="80">
-        <template #default="{ row }">{{ memberName(row.memberId) }}</template>
-      </el-table-column>
-      <el-table-column label="优惠券ID" prop="couponId" min-width="120" />
+      <el-table-column prop="id" label="记录ID" width="140" />
+      <el-table-column prop="memberName" label="会员名称" min-width="100" />
+      <el-table-column prop="couponName" label="优惠券" min-width="160" />
       <el-table-column prop="code" label="券码" min-width="160" />
       <el-table-column label="状态" width="120">
         <template #default="{ row }">
@@ -90,8 +88,6 @@ const query = reactive({
   memberId: '',
   status: ''
 })
-
-const memberName = (id) => memberOptions.value.find((item) => item.id === id)?.name || id || '-'
 
 async function loadMembers() {
   const result = await getMembers({ pageNum: 1, pageSize: 200 })

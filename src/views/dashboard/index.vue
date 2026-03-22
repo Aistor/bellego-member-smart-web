@@ -8,7 +8,7 @@
             <el-icon><User /></el-icon>
           </div>
           <div class="stat-value">{{ totalMembers }}</div>
-          <div class="stat-footer">工作台聚合数据</div>
+          <div class="stat-footer">基于新版分析接口聚合</div>
         </el-card>
       </el-col>
       <el-col :span="6">
@@ -18,7 +18,7 @@
             <el-icon><Money /></el-icon>
           </div>
           <div class="stat-value">￥{{ totalRevenue.toFixed(2) }}</div>
-          <div class="stat-footer">来源于近期消费趋势聚合</div>
+          <div class="stat-footer">来源于每日消费趋势分析</div>
         </el-card>
       </el-col>
       <el-col :span="6">
@@ -28,7 +28,7 @@
             <el-icon><Present /></el-icon>
           </div>
           <div class="stat-value">{{ totalPoints }}</div>
-          <div class="stat-footer">会员总积分汇总</div>
+          <div class="stat-footer">来源于会员总积分汇总</div>
         </el-card>
       </el-col>
       <el-col :span="6">
@@ -48,7 +48,7 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>近七日营业额趋势</span>
+              <span>每日消费趋势</span>
             </div>
           </template>
           <div ref="lineChartRef" style="width: 100%; height: 350px;"></div>
@@ -76,22 +76,19 @@
           </template>
           <el-table :data="recentRecords" border style="width: 100%" show-overflow-tooltip stripe>
             <el-table-column prop="id" label="记录ID" width="100" />
-            <el-table-column label="会员" width="160">
-              <template #default="{ row }">
-                {{ getMemberName(row.member_id) }}
-              </template>
-            </el-table-column>
+            <el-table-column prop="memberName" label="会员" width="160" />
+            <el-table-column prop="storeName" label="门店" width="160" />
             <el-table-column prop="amount" label="消费金额">
               <template #default="{ row }">
                 <span class="expense-text">￥{{ row.amount }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="points_earned" label="获得积分">
+            <el-table-column prop="pointsEarned" label="获得积分">
               <template #default="{ row }">
-                <span class="point-text">+{{ row.points_earned }}</span>
+                <span class="point-text">+{{ row.pointsEarned }}</span>
               </template>
             </el-table-column>
-            <el-table-column prop="consume_time" label="消费时间" width="200" />
+            <el-table-column prop="consumeTime" label="消费时间" width="200" />
           </el-table>
         </el-card>
       </el-col>
@@ -118,23 +115,21 @@ const couponConversionRate = computed(() => {
   return ((totalUsedCoupons.value / totalIssuedCoupons.value) * 100).toFixed(1)
 })
 
-const getMemberName = (id) => id
-
 const lineChartRef = ref(null)
 const pieChartRef = ref(null)
 
 function renderCharts() {
   const lineChart = echarts.init(lineChartRef.value)
-  const lineOption = {
+  lineChart.setOption({
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
-      data: lineData.value.map(item => item.consumeDate),
+      data: lineData.value.map((item) => item.consumeDate)
     },
     yAxis: { type: 'value', name: '营业额' },
     series: [
       {
-        data: lineData.value.map(item => Number(item.totalAmount || 0)),
+        data: lineData.value.map((item) => Number(item.totalAmount || 0)),
         type: 'line',
         smooth: true,
         areaStyle: {
@@ -146,11 +141,10 @@ function renderCharts() {
         itemStyle: { color: '#1890ff' }
       }
     ]
-  }
-  lineChart.setOption(lineOption)
+  })
 
   const pieChart = echarts.init(pieChartRef.value)
-  const pieOption = {
+  pieChart.setOption({
     tooltip: { trigger: 'item' },
     legend: { bottom: '0%', left: 'center' },
     series: [
@@ -159,7 +153,6 @@ function renderCharts() {
         type: 'pie',
         radius: ['40%', '70%'],
         center: ['50%', '40%'],
-        avoidLabelOverlap: false,
         itemStyle: {
           borderRadius: 8,
           borderColor: '#fff',
@@ -173,8 +166,7 @@ function renderCharts() {
         data: pieData.value
       }
     ]
-  }
-  pieChart.setOption(pieOption)
+  })
 
   window.addEventListener('resize', () => {
     lineChart.resize()

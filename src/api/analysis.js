@@ -11,21 +11,6 @@ const reservedDashboardSummary = {
   pieData: []
 }
 
-const reservedLifecycleExtras = {
-  distribution: [
-    { name: '新客', value: 0 },
-    { name: '活跃', value: 0 },
-    { name: '沉默', value: 0 },
-    { name: '流失', value: 0 }
-  ],
-  funnel: [
-    { name: '注册会员', value: 0 },
-    { name: '首单会员', value: 0 },
-    { name: '复购会员', value: 0 },
-    { name: '忠诚会员', value: 0 }
-  ]
-}
-
 const reservedBehaviorRadar = {
   male: [45, 58, 72, 61, 55, 48],
   female: [62, 74, 56, 69, 64, 52]
@@ -62,6 +47,7 @@ function getSegmentLabel(item) {
 export async function getRfmData() {
   const result = await request.get('/v1/analysis/rfm')
   const segments = result.data?.segments || []
+
   return {
     ...result,
     data: segments.map((item) => [
@@ -74,11 +60,13 @@ export async function getRfmData() {
   }
 }
 
-export async function getLifecycleData() {
-  const result = await request.get('/v1/analysis/lifecycle')
+export async function getLifecycleData(period = 'DAY') {
+  const result = await request.get('/v1/analysis/lifecycle', {
+    params: { period }
+  })
   const trendEntries = Object.entries(result.data?.newTrend || {})
-  const categories = trendEntries.map(([date]) => date.slice(5))
-  const newMember = trendEntries.map(([, count]) => count)
+  const categories = trendEntries.map(([date]) => date)
+  const newMember = trendEntries.map(([, count]) => Number(count || 0))
   const activeCount = Number(result.data?.activeCount || 0)
   const lostCount = Number(result.data?.lostCount || 0)
   const totalMembers = Number(result.data?.totalMembers || 0)
@@ -94,18 +82,17 @@ export async function getLifecycleData() {
         churnMember: newMember.map(() => lostCount)
       },
       distribution: [
-        { name: '新客', value: newMember.reduce((sum, value) => sum + value, 0) },
+        { name: '新增', value: newMember.reduce((sum, value) => sum + value, 0) },
         { name: '活跃', value: activeCount },
         { name: '沉默', value: silentCount },
         { name: '流失', value: lostCount }
       ],
       funnel: [
         { name: '注册会员', value: totalMembers },
-        { name: '首单会员', value: activeCount },
+        { name: '活跃会员', value: activeCount },
         { name: '复购会员', value: Math.max(Math.round(activeCount * 0.6), 0) },
         { name: '忠诚会员', value: Math.max(Math.round(activeCount * 0.3), 0) }
-      ],
-      __reserved: reservedLifecycleExtras
+      ]
     }
   }
 }
@@ -137,41 +124,36 @@ export async function getBehaviorData() {
 
 export async function getDashboardSummary() {
   const hint = reservedResponse(
-    '工作台聚合接口暂未提供，当前使用前端聚合预留结构',
+    '当前仍无专用工作台聚合接口，使用已实现分析接口进行前端聚合',
     reservedDashboardSummary
   )
 
   try {
-    const [membersResult, recentResult, levelsResult, memberCouponResult, consumptionsResult] =
-      await Promise.all([
-        request.get('/v1/members', { params: { pageNum: 1, pageSize: 200 } }),
-        request.get('/v1/analysis/behavior/daily-consume'),
-        request.get('/v1/levels'),
-        request.get('/v1/member-coupons', { params: { pageNum: 1, pageSize: 200 } }),
-        request.get('/v1/consumptions', { params: { pageNum: 1, pageSize: 200 } })
-      ])
+    const [
+      membersResult,
+      dailyConsumeResult,
+      levelCountResult,
+      memberCouponResult,
+      consumptionsResult
+    ] = await Promise.all([
+      request.get('/v1/members', { params: { pageNum: 1, pageSize: 200 } }),
+      request.get('/v1/analysis/behavior/daily-consume'),
+      request.get('/v1/analysis/behavior/level-count'),
+      request.get('/v1/member-coupons', { params: { pageNum: 1, pageSize: 200 } }),
+      request.get('/v1/consumptions', { params: { pageNum: 1, pageSize: 200 } })
+    ])
 
     const members = toPageList(membersResult.data)
-    const recent = recentResult.data || []
-    const levels = levelsResult.data || []
+    const dailyConsume = dailyConsumeResult.data || []
+    const levelCounts = levelCountResult.data || []
     const memberCoupons = toPageList(memberCouponResult.data)
     const consumptions = toPageList(consumptionsResult.data)
-
-    const memberNameMap = new Map(
-      members.map((item) => [item.id, item.name || item.memberName || item.cardNumber || '未知会员'])
-    )
-
-    const levelCountMap = new Map()
-    members.forEach((item) => {
-      const key = item.levelId
-      levelCountMap.set(key, (levelCountMap.get(key) || 0) + 1)
-    })
 
     return {
       ...hint,
       data: {
-        totalMembers: members.length,
-        totalRevenue: recent.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0),
+        totalMembers: membersResult.data?.total || members.length,
+        totalRevenue: dailyConsume.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0),
         totalPoints: members.reduce((sum, item) => sum + Number(item.totalPoints || 0), 0),
         totalIssuedCoupons: memberCoupons.length,
         totalUsedCoupons: memberCoupons.filter((item) => Number(item.status) === 1).length,
@@ -180,14 +162,12 @@ export async function getDashboardSummary() {
           .slice(0, 5)
           .map((item) => ({
             ...item,
-            member_id: memberNameMap.get(item.memberId || item.member_id) || '未知会员',
-            points_earned: item.pointsEarned || item.points_earned || 0,
-            consume_time: item.consumeTime || item.consume_time || ''
+            memberName: item.memberName || '未知会员'
           })),
-        lineData: recent,
-        pieData: levels.map((item) => ({
-          name: item.name,
-          value: levelCountMap.get(item.id) || 0
+        lineData: dailyConsume,
+        pieData: levelCounts.map((item) => ({
+          name: item.levelName,
+          value: Number(item.count || 0)
         }))
       }
     }

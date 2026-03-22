@@ -78,13 +78,14 @@
 </template>
 
 <script setup>
-import { onMounted, reactive, ref } from 'vue'
+import { nextTick, onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
 import {
   assignRolePermissions,
   createRole,
   deleteRole,
   getPermissionTree,
+  getRolePermissionIds,
   getRoles,
   updateRole
 } from '../../api/system'
@@ -155,9 +156,13 @@ function openEdit(row) {
   dialogVisible.value = true
 }
 
-function openAssign(row) {
+async function openAssign(row) {
   currentRole.value = row
   assignVisible.value = true
+  await nextTick()
+  const result = await getRolePermissionIds(row.id)
+  const permissionIds = result.data?.permissionIds || []
+  treeRef.value.setCheckedKeys(permissionIds)
 }
 
 function handleSearch() {

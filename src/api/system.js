@@ -64,6 +64,10 @@ export function getAdmins(params = {}) {
   })
 }
 
+export function getAdminRoleIds(id) {
+  return request.get(`/v1/admins/${id}/roles`)
+}
+
 export function createAdmin(data) {
   return request.post('/v1/admins', data)
 }
@@ -91,6 +95,10 @@ export function getRoles(params = {}) {
       ...params
     }
   })
+}
+
+export function getRolePermissionIds(id) {
+  return request.get(`/v1/roles/${id}/permissions`)
 }
 
 export function createRole(data) {

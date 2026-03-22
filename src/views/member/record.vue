@@ -34,14 +34,10 @@
       </el-form-item>
     </el-form>
 
-    <el-table v-loading="loading" :data="tableData" border show-overflow-tooltip stripe>
-      <el-table-column prop="id" label="记录ID" width="120" />
-      <el-table-column label="会员姓名" min-width="60">
-        <template #default="{ row }">{{ memberName(row.memberId) }}</template>
-      </el-table-column>
-      <el-table-column label="门店" min-width="150">
-        <template #default="{ row }">{{ storeName(row.storeId) }}</template>
-      </el-table-column>
+    <el-table v-loading="loading" :data="tableData" border stripe show-overflow-tooltip>
+      <el-table-column prop="id" label="记录ID" width="140" />
+      <el-table-column prop="memberName" label="会员姓名" min-width="80" />
+      <el-table-column prop="storeName" label="门店" min-width="150" />
       <el-table-column prop="amount" label="消费金额" width="120">
         <template #default="{ row }">￥{{ Number(row.amount || 0).toFixed(2) }}</template>
       </el-table-column>
@@ -137,9 +133,6 @@ const rules = {
   storeId: [{ required: true, message: '请选择门店', trigger: 'change' }],
   amount: [{ required: true, message: '请输入消费金额', trigger: 'blur' }]
 }
-
-const memberName = (id) => memberOptions.value.find((item) => item.id === id)?.name || id || '-'
-const storeName = (id) => storeOptions.value.find((item) => item.id === id)?.name || id || '-'
 
 async function loadOptions() {
   const [membersResult, storesResult] = await Promise.all([

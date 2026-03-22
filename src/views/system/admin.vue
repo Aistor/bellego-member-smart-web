@@ -9,7 +9,7 @@
 
     <el-form :inline="true" :model="query" class="search-form">
       <el-form-item label="关键词">
-        <el-input v-model="query.keyword" placeholder="用户名/姓名/手机号" clearable />
+        <el-input v-model="query.keyword" placeholder="用户名/真实姓名/手机号" clearable />
       </el-form-item>
       <el-form-item label="状态">
         <el-select v-model="query.status" clearable placeholder="全部状态" style="width: 140px">
@@ -64,7 +64,12 @@
           <el-input v-model="form.username" :disabled="isEdit" />
         </el-form-item>
         <el-form-item label="密码" prop="password">
-          <el-input v-model="form.password" type="password" show-password placeholder="编辑时留空则不修改" />
+          <el-input
+            v-model="form.password"
+            type="password"
+            show-password
+            placeholder="编辑时留空则不修改"
+          />
         </el-form-item>
         <el-form-item label="真实姓名" prop="realName">
           <el-input v-model="form.realName" />
@@ -116,6 +121,7 @@ import {
   assignAdminRoles,
   createAdmin,
   deleteAdmin,
+  getAdminRoleIds,
   getAdmins,
   getRoles,
   updateAdmin,
@@ -204,9 +210,10 @@ function openEdit(row) {
   dialogVisible.value = true
 }
 
-function openAssign(row) {
+async function openAssign(row) {
   currentAdmin.value = row
-  selectedRoleIds.value = row.roleIds || []
+  const result = await getAdminRoleIds(row.id)
+  selectedRoleIds.value = result.data?.roleIds || []
   assignVisible.value = true
 }
 
