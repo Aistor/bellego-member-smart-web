@@ -32,6 +32,40 @@ function toPageList(payload) {
   return payload?.records || []
 }
 
+async function getAllPagedRecords(path, params = {}) {
+  const pageSize = 200
+  let pageNum = 1
+  let total = Infinity
+  const records = []
+
+  while (records.length < total) {
+    const result = await request.get(path, {
+      params: {
+        ...params,
+        pageNum,
+        pageSize
+      }
+    })
+
+    const pageData = result.data || {}
+    const pageRecords = pageData.records || []
+    total = Number(pageData.total || pageRecords.length || 0)
+    records.push(...pageRecords)
+
+    if (!pageRecords.length || pageRecords.length < pageSize) {
+      break
+    }
+
+    pageNum += 1
+  }
+
+  return records
+}
+
+function getPeriodMonthList(dateList) {
+  return [...new Set(dateList.filter(Boolean).map((date) => String(date).slice(0, 7)))].sort().reverse()
+}
+
 function getSegmentLabel(item) {
   const r = Number(item.rLevel || 0)
   const f = Number(item.fLevel || 0)
@@ -44,15 +78,95 @@ function getSegmentLabel(item) {
   return '一般价值客户'
 }
 
-export async function getRfmData() {
-  const result = await request.get('/v1/analysis/rfm')
-  const segments = result.data?.segments || []
+function buildScoreMap(values, reverse = false) {
+  if (!values.length) return new Map()
+
+  const sorted = [...values].sort((a, b) => a - b)
+  const thresholdAt = (percent) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * percent))]
+  const thresholds = [thresholdAt(0.2), thresholdAt(0.4), thresholdAt(0.6), thresholdAt(0.8)]
+
+  const getScore = (value) => {
+    if (value <= thresholds[0]) return reverse ? 5 : 1
+    if (value <= thresholds[1]) return reverse ? 4 : 2
+    if (value <= thresholds[2]) return reverse ? 3 : 3
+    if (value <= thresholds[3]) return reverse ? 2 : 4
+    return reverse ? 1 : 5
+  }
+
+  return new Map(values.map((value) => [value, getScore(value)]))
+}
+
+export async function getRfmData(selectedMonth = 'ALL') {
+  const [members, consumptions] = await Promise.all([
+    getAllPagedRecords('/v1/members'),
+    getAllPagedRecords('/v1/consumptions')
+  ])
+
+  const availableMonths = getPeriodMonthList(consumptions.map((item) => item.consumeTime))
+  const filteredConsumptions =
+    selectedMonth && selectedMonth !== 'ALL'
+      ? consumptions.filter((item) => String(item.consumeTime || '').startsWith(selectedMonth))
+      : consumptions
+
+  const groupedByMember = new Map()
+  filteredConsumptions.forEach((item) => {
+    const memberId = item.memberId
+    const group = groupedByMember.get(memberId) || []
+    group.push(item)
+    groupedByMember.set(memberId, group)
+  })
+
+  const periodEndDate =
+    selectedMonth && selectedMonth !== 'ALL'
+      ? new Date(`${selectedMonth}-31T23:59:59`)
+      : new Date()
+
+  const memberMap = new Map(members.map((item) => [item.id, item]))
+
+  const rows = [...groupedByMember.entries()].map(([memberId, records]) => {
+    const lastConsumeTime = [...records]
+      .map((item) => new Date(item.consumeTime))
+      .sort((a, b) => b - a)[0]
+
+    const monetary = records.reduce((sum, item) => sum + Number(item.amount || 0), 0)
+    const frequency = records.length
+    const recencyDays = Math.max(
+      0,
+      Math.ceil((periodEndDate.getTime() - lastConsumeTime.getTime()) / (1000 * 60 * 60 * 24))
+    )
+    const member = memberMap.get(memberId) || {}
+
+    return {
+      memberId,
+      memberName: member.name || records[0]?.memberName || '未知会员',
+      recencyDays,
+      frequency,
+      monetary: Number(monetary.toFixed(2))
+    }
+  })
+
+  const recencyScoreMap = buildScoreMap(rows.map((item) => item.recencyDays), true)
+  const frequencyScoreMap = buildScoreMap(rows.map((item) => item.frequency))
+  const monetaryScoreMap = buildScoreMap(rows.map((item) => item.monetary))
+
+  const segments = rows.map((item) => {
+    const rLevel = recencyScoreMap.get(item.recencyDays) || 1
+    const fLevel = frequencyScoreMap.get(item.frequency) || 1
+    const mLevel = monetaryScoreMap.get(item.monetary) || 1
+
+    return {
+      ...item,
+      rLevel,
+      fLevel,
+      mLevel,
+      segmentLabel: getSegmentLabel({ rLevel, fLevel, mLevel })
+    }
+  })
 
   const segmentSummaryMap = new Map()
   segments.forEach((item) => {
-    const label = getSegmentLabel(item)
-    const summary = segmentSummaryMap.get(label) || {
-      label,
+    const summary = segmentSummaryMap.get(item.segmentLabel) || {
+      label: item.segmentLabel,
       count: 0,
       avgRecency: 0,
       avgFrequency: 0,
@@ -60,10 +174,10 @@ export async function getRfmData() {
     }
 
     summary.count += 1
-    summary.avgRecency += Number(item.recencyDays || 0)
-    summary.avgFrequency += Number(item.frequency || 0)
-    summary.avgMonetary += Number(item.monetary || 0)
-    segmentSummaryMap.set(label, summary)
+    summary.avgRecency += item.recencyDays
+    summary.avgFrequency += item.frequency
+    summary.avgMonetary += item.monetary
+    segmentSummaryMap.set(item.segmentLabel, summary)
   })
 
   const segmentSummary = [...segmentSummaryMap.values()]
@@ -76,23 +190,13 @@ export async function getRfmData() {
     .sort((a, b) => b.count - a.count)
 
   return {
-    ...result,
+    code: 200,
+    message: '操作成功',
     data: {
-      totalMembers: Number(result.data?.totalMembers || segments.length || 0),
-      segments: segments.map((item) => ({
-        ...item,
-        segmentLabel: getSegmentLabel(item)
-      })),
-      scatterData: segments.map((item) => [
-        Number(item.recencyDays || 0),
-        Number(item.frequency || 0),
-        Number(item.monetary || 0),
-        item.memberName || item.memberId || '未知会员',
-        getSegmentLabel(item),
-        Number(item.rLevel || 0),
-        Number(item.fLevel || 0),
-        Number(item.mLevel || 0)
-      ]),
+      totalMembers: segments.length,
+      availableMonths,
+      selectedMonth,
+      segments,
       segmentSummary
     }
   }
@@ -118,6 +222,7 @@ export async function getLifecycleData(period = 'DAY') {
       lostCount,
       silentCount,
       newMemberTotal: newMember.reduce((sum, value) => sum + value, 0),
+      availableMonths: getPeriodMonthList(categories),
       trend: {
         categories,
         newMember,
@@ -129,12 +234,6 @@ export async function getLifecycleData(period = 'DAY') {
         { name: '活跃', value: activeCount },
         { name: '沉默', value: silentCount },
         { name: '流失', value: lostCount }
-      ],
-      funnel: [
-        { name: '注册会员', value: totalMembers },
-        { name: '活跃会员', value: activeCount },
-        { name: '复购会员', value: Math.max(Math.round(activeCount * 0.6), 0) },
-        { name: '忠诚会员', value: Math.max(Math.round(activeCount * 0.3), 0) }
       ]
     }
   }

@@ -1,32 +1,54 @@
 <template>
   <div class="lifecycle-page">
+    <el-row :gutter="18" class="toolbar-row">
+      <el-col :span="24">
+        <el-card shadow="never">
+          <div class="toolbar">
+            <div>
+              <div class="toolbar-title">会员生命周期</div>
+              <div class="toolbar-subtitle">默认展示全部时期趋势，可切换查看某个月的新增变化</div>
+            </div>
+            <el-select v-model="selectedMonth" style="width: 180px">
+              <el-option label="全部时期" value="ALL" />
+              <el-option
+                v-for="month in lifecycle.availableMonths"
+                :key="month"
+                :label="month"
+                :value="month"
+              />
+            </el-select>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <el-row :gutter="18" class="summary-row">
       <el-col :span="6">
         <el-card shadow="never" class="summary-card">
-          <div class="summary-label">会员总量</div>
-          <div class="summary-value">{{ lifecycle.totalMembers }}</div>
-          <div class="summary-note">当前生命周期分析样本</div>
+          <div class="summary-label">{{ selectedMonth === 'ALL' ? '全部时期新增会员' : `${selectedMonth} 新增会员` }}</div>
+          <div class="summary-value">{{ selectedPeriodNewMembers }}</div>
+          <div class="summary-note">按创建时间趋势汇总</div>
         </el-card>
       </el-col>
       <el-col :span="6">
         <el-card shadow="never" class="summary-card active-card">
-          <div class="summary-label">活跃会员</div>
+          <div class="summary-label">当前活跃会员</div>
           <div class="summary-value">{{ lifecycle.activeCount }}</div>
-          <div class="summary-note">近期仍有消费行为</div>
+          <div class="summary-note">后端返回当前快照</div>
         </el-card>
       </el-col>
       <el-col :span="6">
         <el-card shadow="never" class="summary-card silent-card">
-          <div class="summary-label">沉睡会员</div>
+          <div class="summary-label">当前沉睡会员</div>
           <div class="summary-value">{{ lifecycle.silentCount }}</div>
-          <div class="summary-note">未流失，但活跃不足</div>
+          <div class="summary-note">当前快照口径</div>
         </el-card>
       </el-col>
       <el-col :span="6">
         <el-card shadow="never" class="summary-card lost-card">
-          <div class="summary-label">流失会员</div>
+          <div class="summary-label">当前流失会员</div>
           <div class="summary-value">{{ lifecycle.lostCount }}</div>
-          <div class="summary-note">需重点召回的客群</div>
+          <div class="summary-note">当前快照口径</div>
         </el-card>
       </el-col>
     </el-row>
@@ -36,11 +58,8 @@
         <el-card shadow="never">
           <template #header>
             <div class="panel-header">
-              <span>生命周期趋势</span>
-              <el-radio-group v-model="period" size="small" @change="loadData">
-                <el-radio-button label="DAY">按日</el-radio-button>
-                <el-radio-button label="MONTH">按月</el-radio-button>
-              </el-radio-group>
+              <span>新增趋势</span>
+              <span class="panel-subtitle">{{ selectedMonth === 'ALL' ? '全部时期' : `${selectedMonth} 明细` }}</span>
             </div>
           </template>
           <div ref="trendChartRef" class="chart-view"></div>
@@ -50,8 +69,8 @@
         <el-card shadow="never">
           <template #header>
             <div class="panel-header">
-              <span>会员状态分布</span>
-              <span class="panel-subtitle">按当前系统可识别状态展示</span>
+              <span>当前会员状态分布</span>
+              <span class="panel-subtitle">当前系统快照</span>
             </div>
           </template>
           <div ref="distributionChartRef" class="chart-view"></div>
@@ -64,25 +83,26 @@
         <el-card shadow="never" class="insight-card">
           <template #header>
             <div class="panel-header">
-              <span>运营解读</span>
+              <span>周期解读</span>
             </div>
           </template>
           <div class="insight-item">
-            <div class="insight-title">新增转化</div>
+            <div class="insight-title">新增表现</div>
             <div class="insight-desc">
-              当前统计周期内新增会员共 <strong>{{ lifecycle.newMemberTotal }}</strong> 人。
+              {{ selectedMonth === 'ALL' ? '全部时期内' : `${selectedMonth} 内` }}新增会员共
+              <strong>{{ selectedPeriodNewMembers }}</strong> 人。
             </div>
           </div>
           <div class="insight-item">
-            <div class="insight-title">会员健康度</div>
+            <div class="insight-title">当前健康度</div>
             <div class="insight-desc">
               活跃率 <strong>{{ activeRate }}%</strong>，流失率 <strong>{{ lostRate }}%</strong>。
             </div>
           </div>
           <div class="insight-item">
-            <div class="insight-title">召回优先级</div>
+            <div class="insight-title">说明</div>
             <div class="insight-desc">
-              沉睡与流失会员合计 <strong>{{ lifecycle.silentCount + lifecycle.lostCount }}</strong> 人，建议配合优惠券与积分触达。
+              月份切换当前只影响“新增趋势”和所选时期新增人数；活跃、沉睡、流失仍使用后端当前快照。
             </div>
           </div>
         </el-card>
@@ -92,20 +112,20 @@
         <el-card shadow="never" class="insight-card">
           <template #header>
             <div class="panel-header">
-              <span>生命周期建议</span>
+              <span>运营建议</span>
             </div>
           </template>
           <div class="action-item">
             <div class="action-tag active-tag">活跃会员</div>
-            <div class="action-text">适合通过积分规则和等级权益持续提升复购频次。</div>
+            <div class="action-text">优先用等级权益和积分激励提高复购频次。</div>
           </div>
           <div class="action-item">
             <div class="action-tag silent-tag">沉睡会员</div>
-            <div class="action-text">更适合做限时优惠、唤醒短信和低门槛券包。</div>
+            <div class="action-text">适合低门槛券、限时唤醒活动和节日触达。</div>
           </div>
           <div class="action-item">
             <div class="action-tag lost-tag">流失会员</div>
-            <div class="action-text">建议建立独立召回活动，并结合最近一次消费时间做分层召回。</div>
+            <div class="action-text">建议按最近消费时间再做细分召回，控制补贴成本。</div>
           </div>
         </el-card>
       </el-col>
@@ -114,17 +134,18 @@
 </template>
 
 <script setup>
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
 import { getLifecycleData } from '../../api/analysis'
 
-const period = ref('DAY')
+const selectedMonth = ref('ALL')
 const lifecycle = ref({
   totalMembers: 0,
   activeCount: 0,
   lostCount: 0,
   silentCount: 0,
   newMemberTotal: 0,
+  availableMonths: [],
   trend: {
     categories: [],
     newMember: [],
@@ -140,6 +161,28 @@ const distributionChartRef = ref(null)
 let trendChart
 let distributionChart
 
+const filteredTrend = computed(() => {
+  if (selectedMonth.value === 'ALL') {
+    return lifecycle.value.trend
+  }
+
+  const indexes = lifecycle.value.trend.categories
+    .map((date, index) => ({ date, index }))
+    .filter((item) => String(item.date).startsWith(selectedMonth.value))
+    .map((item) => item.index)
+
+  return {
+    categories: indexes.map((index) => lifecycle.value.trend.categories[index]),
+    newMember: indexes.map((index) => lifecycle.value.trend.newMember[index]),
+    activeMember: indexes.map((index) => lifecycle.value.trend.activeMember[index]),
+    churnMember: indexes.map((index) => lifecycle.value.trend.churnMember[index])
+  }
+})
+
+const selectedPeriodNewMembers = computed(() =>
+  filteredTrend.value.newMember.reduce((sum, value) => sum + Number(value || 0), 0)
+)
+
 const activeRate = computed(() =>
   lifecycle.value.totalMembers
     ? ((lifecycle.value.activeCount / lifecycle.value.totalMembers) * 100).toFixed(1)
@@ -153,21 +196,17 @@ const lostRate = computed(() =>
 )
 
 function renderCharts() {
-  if (!trendChart) {
-    trendChart = echarts.init(trendChartRef.value)
-  }
-  if (!distributionChart) {
-    distributionChart = echarts.init(distributionChartRef.value)
-  }
+  if (!trendChart) trendChart = echarts.init(trendChartRef.value)
+  if (!distributionChart) distributionChart = echarts.init(distributionChartRef.value)
 
   trendChart.setOption({
     tooltip: { trigger: 'axis' },
-    legend: { data: ['新增会员', '活跃会员', '流失会员'] },
+    legend: { data: ['新增会员', '活跃会员', '流失会员'], bottom: 0 },
     grid: { left: 26, right: 20, bottom: 26, top: 40, containLabel: true },
     xAxis: {
       type: 'category',
       boundaryGap: false,
-      data: lifecycle.value.trend.categories
+      data: filteredTrend.value.categories
     },
     yAxis: { type: 'value', name: '人数' },
     series: [
@@ -175,7 +214,7 @@ function renderCharts() {
         name: '新增会员',
         type: 'line',
         smooth: true,
-        data: lifecycle.value.trend.newMember,
+        data: filteredTrend.value.newMember,
         itemStyle: { color: '#2563eb' },
         areaStyle: { color: 'rgba(37, 99, 235, 0.08)' }
       },
@@ -183,14 +222,14 @@ function renderCharts() {
         name: '活跃会员',
         type: 'line',
         smooth: true,
-        data: lifecycle.value.trend.activeMember,
+        data: filteredTrend.value.activeMember,
         itemStyle: { color: '#0f766e' }
       },
       {
         name: '流失会员',
         type: 'line',
         smooth: true,
-        data: lifecycle.value.trend.churnMember,
+        data: filteredTrend.value.churnMember,
         itemStyle: { color: '#dc2626' }
       }
     ]
@@ -210,10 +249,11 @@ function renderCharts() {
           borderColor: '#fff',
           borderWidth: 1.5
         },
-        labelLine: { show: false },
+        label: { show: false, position: 'center', formatter: '{b}\n{d}%' },
         emphasis: {
           label: { show: true, fontSize: 20, fontWeight: 'bold' }
         },
+        labelLine: { show: false },
         data: lifecycle.value.distribution.map((item) => ({
           ...item,
           itemStyle: {
@@ -226,19 +266,14 @@ function renderCharts() {
                     ? '#dc2626'
                     : '#2563eb'
           }
-        })),
-        label: {
-          formatter: '{b}\n{d}%',
-          show: false, 
-          position: 'center' 
-        }
+        }))
       }
     ]
   })
 }
 
 async function loadData() {
-  const result = await getLifecycleData(period.value)
+  const result = await getLifecycleData('DAY')
   lifecycle.value = result.data
   renderCharts()
 }
@@ -247,6 +282,10 @@ function handleResize() {
   trendChart?.resize()
   distributionChart?.resize()
 }
+
+watch(selectedMonth, () => {
+  renderCharts()
+})
 
 onMounted(async () => {
   await loadData()
@@ -265,9 +304,29 @@ onBeforeUnmount(() => {
   padding: 10px;
 }
 
+.toolbar-row,
 .summary-row,
 .content-row {
   margin-bottom: 18px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.toolbar-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.toolbar-subtitle {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .summary-card {

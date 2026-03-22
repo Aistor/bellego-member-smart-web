@@ -1,11 +1,33 @@
 <template>
   <div class="rfm-page">
+    <el-row :gutter="18" class="toolbar-row">
+      <el-col :span="24">
+        <el-card shadow="never">
+          <div class="toolbar">
+            <div>
+              <div class="toolbar-title">RFM 客群分层</div>
+              <div class="toolbar-subtitle">默认统计全部时期，可切换到任意月份查看当月会员价值结构</div>
+            </div>
+            <el-select v-model="selectedMonth" style="width: 180px" @change="loadData">
+              <el-option label="全部时期" value="ALL" />
+              <el-option
+                v-for="month in availableMonths"
+                :key="month"
+                :label="month"
+                :value="month"
+              />
+            </el-select>
+          </div>
+        </el-card>
+      </el-col>
+    </el-row>
+
     <el-row :gutter="18" class="overview-row">
       <el-col :span="6">
         <el-card shadow="never" class="overview-card">
           <div class="overview-label">RFM 覆盖会员</div>
           <div class="overview-value">{{ totalMembers }}</div>
-          <div class="overview-note">来自后端 RFM 明细样本</div>
+          <div class="overview-note">{{ selectedMonth === 'ALL' ? '全部时期' : `${selectedMonth} 当月` }}</div>
         </el-card>
       </el-col>
       <el-col :span="6">
@@ -19,14 +41,14 @@
         <el-card shadow="never" class="overview-card">
           <div class="overview-label">平均消费频次</div>
           <div class="overview-value">{{ averageFrequency }}</div>
-          <div class="overview-note">按当前 RFM 样本计算</div>
+          <div class="overview-note">按当前选择时期实时计算</div>
         </el-card>
       </el-col>
       <el-col :span="6">
         <el-card shadow="never" class="overview-card">
           <div class="overview-label">平均消费金额</div>
           <div class="overview-value">￥{{ averageMonetary }}</div>
-          <div class="overview-note">按当前 RFM 样本计算</div>
+          <div class="overview-note">按当前选择时期实时计算</div>
         </el-card>
       </el-col>
     </el-row>
@@ -98,7 +120,7 @@
           <template #header>
             <div class="panel-header">
               <span>客群人数分布</span>
-              <span class="panel-subtitle">按当前 RFM 分层结果统计</span>
+              <span class="panel-subtitle">当前选择时期的客群规模</span>
             </div>
           </template>
           <div ref="barChartRef" class="chart-view small"></div>
@@ -121,7 +143,7 @@
             <el-table-column prop="monetary" label="累计消费" width="120">
               <template #default="{ row }">￥{{ Number(row.monetary || 0).toFixed(2) }}</template>
             </el-table-column>
-            <el-table-column label="RFM 评分" min-width="100">
+            <el-table-column label="R/F/M" min-width="100">
               <template #default="{ row }">
                 {{ row.rLevel }}/{{ row.fLevel }}/{{ row.mLevel }}
               </template>
@@ -141,6 +163,8 @@ import { getRfmData } from '../../api/analysis'
 const scatterChartRef = ref(null)
 const barChartRef = ref(null)
 const activeSegment = ref('ALL')
+const selectedMonth = ref('ALL')
+const availableMonths = ref([])
 const totalMembers = ref(0)
 const segments = ref([])
 const segmentSummary = ref([])
@@ -215,7 +239,7 @@ function renderScatterChart() {
             <div>最近消费：${value[0]} 天前</div>
             <div>消费频次：${value[1]} 次</div>
             <div>累计消费：￥${Number(value[2] || 0).toFixed(2)}</div>
-            <div>RFM评分：${value[5]}/${value[6]}/${value[7]}</div>
+            <div>R/F/M：${value[5]}/${value[6]}/${value[7]}</div>
           </div>
         `
       }
@@ -287,10 +311,11 @@ function renderBarChart() {
 }
 
 async function loadData() {
-  const result = await getRfmData()
+  const result = await getRfmData(selectedMonth.value)
   totalMembers.value = Number(result.data?.totalMembers || 0)
   segments.value = result.data?.segments || []
   segmentSummary.value = result.data?.segmentSummary || []
+  availableMonths.value = (result.data?.availableMonths || []).slice().reverse();
 
   if (!segmentSummary.value.some((item) => item.label === activeSegment.value)) {
     activeSegment.value = 'ALL'
@@ -327,9 +352,29 @@ onBeforeUnmount(() => {
   padding: 10px;
 }
 
+.toolbar-row,
 .overview-row,
 .content-row {
   margin-bottom: 18px;
+}
+
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.toolbar-title {
+  font-size: 18px;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.toolbar-subtitle {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 13px;
 }
 
 .overview-card {
