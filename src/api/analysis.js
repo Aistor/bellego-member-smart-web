@@ -1,123 +1,197 @@
-const delay = (ms = 200) => new Promise(resolve => setTimeout(resolve, ms))
+import request from '../utils/request'
 
-const successResponse = (data) => ({
+const reservedDashboardSummary = {
+  totalMembers: 0,
+  totalRevenue: 0,
+  totalPoints: 0,
+  totalIssuedCoupons: 0,
+  totalUsedCoupons: 0,
+  recentRecords: [],
+  lineData: [],
+  pieData: []
+}
+
+const reservedLifecycleExtras = {
+  distribution: [
+    { name: '新客', value: 0 },
+    { name: '活跃', value: 0 },
+    { name: '沉默', value: 0 },
+    { name: '流失', value: 0 }
+  ],
+  funnel: [
+    { name: '注册会员', value: 0 },
+    { name: '首单会员', value: 0 },
+    { name: '复购会员', value: 0 },
+    { name: '忠诚会员', value: 0 }
+  ]
+}
+
+const reservedBehaviorRadar = {
+  male: [45, 58, 72, 61, 55, 48],
+  female: [62, 74, 56, 69, 64, 52]
+}
+
+function reservedResponse(message, data) {
+  return {
+    code: 200,
+    message,
+    data,
+    __reserved: true
+  }
+}
+
+function toPageList(payload) {
+  if (Array.isArray(payload)) {
+    return payload
+  }
+  return payload?.records || []
+}
+
+function getSegmentLabel(item) {
+  const r = Number(item.rLevel || 0)
+  const f = Number(item.fLevel || 0)
+  const m = Number(item.mLevel || 0)
+
+  if (r >= 4 && f >= 4 && m >= 4) return '重要价值客户'
+  if (r <= 2 && f >= 4) return '重要保持客户'
+  if (r >= 4 && (f >= 2 || m >= 3)) return '重要发展客户'
+  if (r <= 2 && (f <= 2 || m <= 2)) return '重要挽留客户'
+  return '一般价值客户'
+}
+
+export async function getRfmData() {
+  const result = await request.get('/v1/analysis/rfm')
+  const segments = result.data?.segments || []
+  return {
+    ...result,
+    data: segments.map((item) => [
+      Number(item.recencyDays || 0),
+      Number(item.frequency || 0),
+      Number(item.monetary || 0),
+      item.memberName || item.memberId || '未知会员',
+      getSegmentLabel(item)
+    ])
+  }
+}
+
+export async function getLifecycleData() {
+  const result = await request.get('/v1/analysis/lifecycle')
+  const trendEntries = Object.entries(result.data?.newTrend || {})
+  const categories = trendEntries.map(([date]) => date.slice(5))
+  const newMember = trendEntries.map(([, count]) => count)
+  const activeCount = Number(result.data?.activeCount || 0)
+  const lostCount = Number(result.data?.lostCount || 0)
+  const totalMembers = Number(result.data?.totalMembers || 0)
+  const silentCount = Math.max(totalMembers - activeCount - lostCount, 0)
+
+  return {
+    ...result,
+    data: {
+      trend: {
+        categories,
+        newMember,
+        activeMember: newMember.map(() => activeCount),
+        churnMember: newMember.map(() => lostCount)
+      },
+      distribution: [
+        { name: '新客', value: newMember.reduce((sum, value) => sum + value, 0) },
+        { name: '活跃', value: activeCount },
+        { name: '沉默', value: silentCount },
+        { name: '流失', value: lostCount }
+      ],
+      funnel: [
+        { name: '注册会员', value: totalMembers },
+        { name: '首单会员', value: activeCount },
+        { name: '复购会员', value: Math.max(Math.round(activeCount * 0.6), 0) },
+        { name: '忠诚会员', value: Math.max(Math.round(activeCount * 0.3), 0) }
+      ],
+      __reserved: reservedLifecycleExtras
+    }
+  }
+}
+
+export async function getBehaviorData() {
+  const [orderAmountResult, timeDistributionResult] = await Promise.all([
+    request.get('/v1/analysis/behavior/order-amount'),
+    request.get('/v1/analysis/behavior/time-distribution')
+  ])
+
+  const bucketMap = orderAmountResult.data?.buckets || {}
+  const buckets = ['0-100', '101-300', '301-500', '500+']
+  const distribution = timeDistributionResult.data?.distribution || {}
+  const times = Object.keys(distribution).sort((a, b) => Number(a) - Number(b))
+
+  return {
     code: 200,
     message: '操作成功',
-    data
-})
-
-// === 分析模块图表数据模拟 API ===
-
-export const getRfmData = async () => {
-    await delay(400)
-    // 模拟 RFM 数据 [Recency(最近消费天数), Frequency(消费频次), Monetary(消费金额), 会员名称, 客户类型]
-    return successResponse([
-        [5, 25, 5000, '张三', '重要价值客户'],
-        [10, 15, 3000, '李四', '重要价值客户'],
-        [60, 20, 4500, '王五', '重要保持客户'],
-        [80, 18, 5200, '赵六', '重要保持客户'],
-        [3, 2, 6000, '孙七', '重要发展客户'],
-        [12, 5, 8000, '周八', '重要发展客户'],
-        [90, 3, 4000, '吴九', '重要挽留客户'],
-        [100, 1, 3500, '郑十', '重要挽留客户'],
-        [2, 12, 800, '钱一', '一般价值客户'],
-        [8, 10, 500, '陈二', '一般价值客户'],
-        [45, 1, 150, '林三', '一般发展客户'],
-        [120, 2, 200, '宋四', '一般挽留客户']
-    ])
+    data: {
+      orderAmountHistogram: buckets.map((key) => Number(bucketMap[key] || 0)),
+      radar: reservedBehaviorRadar,
+      hotTime: {
+        times: times.map((hour) => `${hour.padStart(2, '0')}:00`),
+        data: times.map((hour) => Number(distribution[hour] || 0))
+      }
+    }
+  }
 }
 
-export const getLifecycleData = async () => {
-    await delay(350)
-    return successResponse({
-        trend: {
-            categories: ['03-01', '03-02', '03-03', '03-04', '03-05', '03-06', '03-07'],
-            newMember: [120, 132, 101, 134, 90, 230, 210],
-            activeMember: [220, 182, 191, 234, 290, 330, 310],
-            churnMember: [15, 23, 20, 15, 19, 33, 41]
-        },
-        distribution: [
-            { value: 1048, name: '新手期' },
-            { value: 735, name: '成长期' },
-            { value: 1580, name: '成熟期' },
-            { value: 484, name: '衰退期' },
-            { value: 300, name: '流失期' }
-        ],
-        funnel: [
-            { value: 100, name: '注册会员' },
-            { value: 80, name: '首单会员' },
-            { value: 60, name: '复购会员(>2单)' },
-            { value: 40, name: '忠诚活跃会员' }
-        ]
-    })
-}
+export async function getDashboardSummary() {
+  const hint = reservedResponse(
+    '工作台聚合接口暂未提供，当前使用前端聚合预留结构',
+    reservedDashboardSummary
+  )
 
-export const getBehaviorData = async () => {
-    await delay(300)
-    return successResponse({
-        orderAmountHistogram: [150, 430, 520, 200, 80],
-        radar: {
-            male: [40, 60, 90, 30, 50, 80],
-            female: [95, 85, 40, 80, 75, 40]
-        },
-        hotTime: {
-            times: ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00', '22:00'],
-            data: [50, 200, 150, 180, 300, 800, 450, 100]
-        }
-    })
-}
+  try {
+    const [membersResult, recentResult, levelsResult, memberCouponResult, consumptionsResult] =
+      await Promise.all([
+        request.get('/v1/members', { params: { pageNum: 1, pageSize: 200 } }),
+        request.get('/v1/analysis/behavior/daily-consume'),
+        request.get('/v1/levels'),
+        request.get('/v1/member-coupons', { params: { pageNum: 1, pageSize: 200 } }),
+        request.get('/v1/consumptions', { params: { pageNum: 1, pageSize: 200 } })
+      ])
 
-// === 首页 Dashboard API ===
-import { memberList, consumptionRecordList, memberCouponList, memberLevelList } from '../mock/data'
+    const members = toPageList(membersResult.data)
+    const recent = recentResult.data || []
+    const levels = levelsResult.data || []
+    const memberCoupons = toPageList(memberCouponResult.data)
+    const consumptions = toPageList(consumptionsResult.data)
 
-export const getDashboardSummary = async () => {
-    await delay(400)
+    const memberNameMap = new Map(
+      members.map((item) => [item.id, item.name || item.memberName || item.cardNumber || '未知会员'])
+    )
 
-    // 这部分聚合逻辑原本该由后端在数据库里完成
-    const totalMembers = memberList.length
-    const totalRevenue = consumptionRecordList.reduce((acc, curr) => acc + curr.amount, 0)
-    const totalPoints = memberList.reduce((acc, curr) => acc + curr.total_points, 0)
-
-    const totalIssuedCoupons = memberCouponList.length
-    const totalUsedCoupons = memberCouponList.filter(c => c.status === 1).length
-
-    // 获取近期5笔最高金额，并带上会员名字
-    const recentRecords = [...consumptionRecordList]
-        .sort((a, b) => b.amount - a.amount)
-        .slice(0, 5)
-        .map(r => {
-            const m = memberList.find(x => x.id === r.member_id)
-            return {
-                ...r,
-                member_id: m ? m.name : '未知会员'
-            }
-        })
-
-    // 折线图
-    const lineData = [1200, 2400, 1500, 3200, 2100, 4800, 3500]
-
-    // 等级分布饼图
-    const levelCounts = {}
-    memberLevelList.forEach(l => { levelCounts[l.id] = 0 })
-    memberList.forEach(m => {
-        if (levelCounts[m.level_id] !== undefined) {
-            levelCounts[m.level_id]++
-        }
+    const levelCountMap = new Map()
+    members.forEach((item) => {
+      const key = item.levelId
+      levelCountMap.set(key, (levelCountMap.get(key) || 0) + 1)
     })
 
-    const pieData = memberLevelList.map(l => ({
-        name: l.name,
-        value: levelCounts[l.id]
-    }))
-
-    return successResponse({
-        totalMembers,
-        totalRevenue,
-        totalPoints,
-        totalIssuedCoupons,
-        totalUsedCoupons,
-        recentRecords,
-        lineData,
-        pieData
-    })
+    return {
+      ...hint,
+      data: {
+        totalMembers: members.length,
+        totalRevenue: recent.reduce((sum, item) => sum + Number(item.totalAmount || 0), 0),
+        totalPoints: members.reduce((sum, item) => sum + Number(item.totalPoints || 0), 0),
+        totalIssuedCoupons: memberCoupons.length,
+        totalUsedCoupons: memberCoupons.filter((item) => Number(item.status) === 1).length,
+        recentRecords: [...consumptions]
+          .sort((a, b) => Number(b.amount || 0) - Number(a.amount || 0))
+          .slice(0, 5)
+          .map((item) => ({
+            ...item,
+            member_id: memberNameMap.get(item.memberId || item.member_id) || '未知会员',
+            points_earned: item.pointsEarned || item.points_earned || 0,
+            consume_time: item.consumeTime || item.consume_time || ''
+          })),
+        lineData: recent,
+        pieData: levels.map((item) => ({
+          name: item.name,
+          value: levelCountMap.get(item.id) || 0
+        }))
+      }
+    }
+  } catch (error) {
+    return hint
+  }
 }

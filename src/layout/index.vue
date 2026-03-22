@@ -1,38 +1,45 @@
 <template>
-  <div class="app-wrapper">
-    <el-container class="layout-container">
-      <el-aside width="200px" class="aside">
-        <h2 class="logo">超市管理系统</h2>
+  <el-container class="layout-shell">
+    <el-aside class="layout-aside" width="240px">
+      <div class="brand">
+        <div class="brand-mark">B</div>
+        <div>
+          <div class="brand-title">Bellego</div>
+          <div class="brand-subtitle">百乐购超市会员智管系统</div>
+        </div>
+      </div>
+
+      <el-scrollbar>
         <el-menu
           router
           :default-active="$route.path"
-          class="el-menu-vertical"
-          background-color="#304156"
-          text-color="#bfcbd9"
-          active-text-color="#409EFF"
+          class="layout-menu"
+          background-color="transparent"
+          text-color="#d7e1f1"
+          active-text-color="#ffffff"
         >
           <el-menu-item index="/dashboard">
-            <el-icon><HomeFilled /></el-icon>
-            <span>首页</span>
+            <el-icon><House /></el-icon>
+            <span>工作台</span>
           </el-menu-item>
-          
+
           <el-sub-menu index="/member">
             <template #title>
               <el-icon><UserFilled /></el-icon>
-              <span>基础会员管理</span>
+              <span>会员管理</span>
             </template>
             <el-menu-item index="/member/list">会员列表</el-menu-item>
             <el-menu-item index="/member/level">会员等级</el-menu-item>
-            <el-menu-item index="/member/record">消费记账</el-menu-item>
+            <el-menu-item index="/member/record">消费记录</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="/marketing">
             <template #title>
-              <el-icon><Goods /></el-icon>
-              <span>营销模块</span>
+              <el-icon><Ticket /></el-icon>
+              <span>营销管理</span>
             </template>
-            <el-menu-item index="/marketing/coupon">卡券管理</el-menu-item>
-            <el-menu-item index="/marketing/member-coupon">会员卡券</el-menu-item>
+            <el-menu-item index="/marketing/coupon">优惠券管理</el-menu-item>
+            <el-menu-item index="/marketing/member-coupon">会员优惠券</el-menu-item>
             <el-menu-item index="/marketing/point-rule">积分规则</el-menu-item>
             <el-menu-item index="/marketing/point-detail">积分明细</el-menu-item>
           </el-sub-menu>
@@ -40,9 +47,9 @@
           <el-sub-menu index="/analysis">
             <template #title>
               <el-icon><DataAnalysis /></el-icon>
-              <span>会员分析</span>
+              <span>分析模块</span>
             </template>
-            <el-menu-item index="/analysis/rfm">RFM模型分析</el-menu-item>
+            <el-menu-item index="/analysis/rfm">RFM 分析</el-menu-item>
             <el-menu-item index="/analysis/lifecycle">生命周期分析</el-menu-item>
             <el-menu-item index="/analysis/behavior">消费行为分析</el-menu-item>
           </el-sub-menu>
@@ -52,81 +59,171 @@
               <el-icon><Setting /></el-icon>
               <span>系统管理</span>
             </template>
-            <el-menu-item index="/system/store">多门店管理</el-menu-item>
+            <el-menu-item index="/system/store">门店管理</el-menu-item>
             <el-menu-item index="/system/log">操作日志</el-menu-item>
             <el-menu-item index="/system/admin">管理员管理</el-menu-item>
             <el-menu-item index="/system/role">角色管理</el-menu-item>
             <el-menu-item index="/system/permission">权限管理</el-menu-item>
           </el-sub-menu>
-
         </el-menu>
-      </el-aside>
-      <el-container>
-        <el-header class="header">
-          <div class="header-content">欢迎使用会员管理系统</div>
-          <div class="header-actions">
-            <el-dropdown @command="handleCommand">
-              <span class="el-dropdown-link" style="cursor: pointer; display: flex; align-items: center;">
-                admin <el-icon class="el-icon--right"><ArrowDown /></el-icon>
-              </span>
-              <template #dropdown>
-                <el-dropdown-menu>
-                  <el-dropdown-item command="logout">退出登录</el-dropdown-item>
-                </el-dropdown-menu>
-              </template>
-            </el-dropdown>
+      </el-scrollbar>
+    </el-aside>
+
+    <el-container>
+      <el-header class="layout-header">
+        <div>
+          <div class="header-title">{{ currentTitle }}</div>
+        </div>
+
+        <el-dropdown @command="handleCommand">
+          <div class="user-box">
+            <el-avatar :size="32">{{ userInitial }}</el-avatar>
+            <div>
+              <div class="user-name">{{ displayName }}</div>
+              <div class="user-role">{{ userStore.profile?.username || 'admin' }}</div>
+            </div>
           </div>
-        </el-header>
-        <el-main class="main">
-          <router-view />
-        </el-main>
-      </el-container>
+          <template #dropdown>
+            <el-dropdown-menu>
+              <el-dropdown-item command="logout">退出登录</el-dropdown-item>
+            </el-dropdown-menu>
+          </template>
+        </el-dropdown>
+      </el-header>
+
+      <el-main class="layout-main">
+        <router-view />
+      </el-main>
     </el-container>
-  </div>
+  </el-container>
 </template>
 
 <script setup>
-import { useRouter } from 'vue-router'
+import { computed } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
+import { ElMessage } from 'element-plus'
+import {
+  DataAnalysis,
+  House,
+  Setting,
+  Ticket,
+  UserFilled
+} from '@element-plus/icons-vue'
+import { logout } from '../api/system'
 import { useUserStore } from '../store/user'
-import { ArrowDown, HomeFilled, UserFilled, Goods, DataAnalysis, Setting } from '@element-plus/icons-vue'
 
+const route = useRoute()
 const router = useRouter()
 const userStore = useUserStore()
 
-const handleCommand = (command) => {
-  if (command === 'logout') {
-    userStore.logout()
-    router.push('/login')
+const currentTitle = computed(() => route.meta?.title || '工作台')
+const displayName = computed(
+  () => userStore.profile?.realName || userStore.profile?.username || '管理员'
+)
+const userInitial = computed(() => displayName.value.slice(0, 1))
+
+async function handleCommand(command) {
+  if (command !== 'logout') return
+
+  try {
+    await logout()
+  } catch (error) {
+    // 后端退出是幂等流程，这里失败也允许本地退出
   }
+
+  userStore.logout()
+  ElMessage.success('已退出登录')
+  router.push('/login')
 }
 </script>
 
 <style scoped>
-.app-wrapper, .layout-container {
-  height: 100vh;
-  width: 100vw;
+.layout-shell {
+  min-height: 100vh;
+  background: #edf2f7;
 }
-.aside {
-  background-color: #304156;
-}
-.logo {
+
+.layout-aside {
+  background: linear-gradient(180deg, #17324d 0%, #102539 100%);
   color: #fff;
-  text-align: center;
-  line-height: 60px;
-  margin: 0;
-  font-size: 18px;
-  background-color: #2b3643;
+  border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
-.header {
-  background-color: #fff;
-  border-bottom: 1px solid #e6e6e6;
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 20px 18px;
+}
+
+.brand-mark {
+  width: 42px;
+  height: 42px;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #f59e0b 0%, #f97316 100%);
+  color: #fff;
+  display: grid;
+  place-items: center;
+  font-size: 22px;
+  font-weight: 700;
+}
+
+.brand-title {
+  font-size: 18px;
+  font-weight: 700;
+}
+
+.brand-subtitle {
+  font-size: 12px;
+  color: rgba(255, 255, 255, 0.68);
+}
+
+.layout-menu {
+  border-right: 0;
+  padding: 8px 10px 24px;
+}
+
+.layout-header {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  height: 76px;
+  padding: 0 24px;
+  background: rgba(255, 255, 255, 0.92);
+  backdrop-filter: blur(12px);
+  border-bottom: 1px solid rgba(15, 23, 42, 0.08);
 }
-.main {
-  background-color: #f0f2f5;
-  padding: 20px;
-  box-sizing: border-box;
+
+.header-title {
+  font-size: 22px;
+  font-weight: 700;
+  color: #14213d;
+}
+
+.header-subtitle {
+  margin-top: 4px;
+  color: #64748b;
+  font-size: 13px;
+}
+
+.user-box {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+}
+
+.user-name {
+  color: #0f172a;
+  font-weight: 600;
+}
+
+.user-role {
+  color: #64748b;
+  font-size: 12px;
+}
+
+.layout-main {
+  padding: 24px;
 }
 </style>

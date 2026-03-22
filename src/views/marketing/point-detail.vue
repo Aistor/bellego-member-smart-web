@@ -1,76 +1,146 @@
 <template>
-  <el-card>
+  <el-card shadow="never">
     <template #header>
-      <div class="card-header">
-        <span>积分获取与验证记录</span>
+      <div class="page-header">
+        <span>积分明细</span>
+        <el-upload :show-file-list="false" :auto-upload="false" :on-change="handleImport">
+          <el-button type="primary">导入 CSV</el-button>
+        </el-upload>
       </div>
     </template>
 
-    <el-table :data="tableData" border style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="记录ID" width="80" />
-      <el-table-column label="会员" width="120">
-        <template #default="scope">
-          {{ getMemberName(scope.row.member_id) }}
-        </template>
+    <el-form :inline="true" :model="query" class="search-form">
+      <el-form-item label="会员">
+        <el-select v-model="query.memberId" clearable filterable placeholder="全部会员" style="width: 180px">
+          <el-option
+            v-for="item in memberOptions"
+            :key="item.id"
+            :label="`${item.name} / ${item.phone}`"
+            :value="item.id"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="类型">
+        <el-select v-model="query.type" clearable placeholder="全部类型" style="width: 140px">
+          <el-option label="消费获得积分" :value="1" />
+        </el-select>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" @click="handleSearch">查询</el-button>
+        <el-button @click="resetSearch">重置</el-button>
+      </el-form-item>
+    </el-form>
+
+    <el-table v-loading="loading" :data="tableData" border show-overflow-tooltip stripe>
+      <el-table-column prop="id" label="明细ID" width="120" />
+      <el-table-column label="会员名称" min-width="80">
+        <template #default="{ row }">{{ memberName(row.memberId) }}</template>
       </el-table-column>
-      <el-table-column label="变动类型" width="100">
-        <template #default="scope">
-          <el-tag :type="scope.row.type === 1 ? 'success' : (scope.row.type === 2 ? 'warning' : 'danger')">
-            {{ scope.row.type === 1 ? '获取' : (scope.row.type === 2 ? '兑换/消耗' : '过期') }}
-          </el-tag>
-        </template>
+      <el-table-column prop="type" label="类型" width="120">
+        <template #default="{ row }">{{ Number(row.type) === 1 ? '消费获得积分' : row.type }}</template>
       </el-table-column>
-      <el-table-column label="积分变动" width="120">
-        <template #default="scope">
-          <span :style="{ color: scope.row.points > 0 ? '#67c23a' : '#f56c6c', fontWeight: 'bold' }">
-            {{ scope.row.points > 0 ? '+' : '' }}{{ scope.row.points }}
-          </span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="balance" label="变动后余额" width="120" />
-      <el-table-column prop="source" label="来源" width="100" />
-      <el-table-column prop="remark" label="备注" min-width="150" />
-      <el-table-column prop="create_time" label="变动时间" width="160" />
+      <el-table-column prop="points" label="变动积分" width="120" />
+      <el-table-column prop="balance" label="积分余额" width="120" />
+      <el-table-column prop="source" label="来源" width="120" />
+      <el-table-column prop="sourceId" label="来源业务ID" width="140" />
+      <el-table-column prop="remark" label="备注" min-width="180" />
+      <el-table-column prop="createTime" label="创建时间" min-width="170" />
     </el-table>
+
+    <div class="pager">
+      <el-pagination
+        v-model:current-page="query.pageNum"
+        v-model:page-size="query.pageSize"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @current-change="loadData"
+        @size-change="handleSearch"
+      />
+    </div>
   </el-card>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getPointDetails } from '../../api/marketing'
+import { getMembers } from '../../api/member'
+import { getPointDetails, importPointDetails } from '../../api/marketing'
 
 const loading = ref(false)
 const tableData = ref([])
+const total = ref(0)
+const memberOptions = ref([])
 
-const loadData = async () => {
+const query = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  memberId: '',
+  type: ''
+})
+
+const memberName = (id) => memberOptions.value.find((item) => item.id === id)?.name || id || '-'
+
+async function loadMembers() {
+  const result = await getMembers({ pageNum: 1, pageSize: 200 })
+  memberOptions.value = result.data?.records || []
+}
+
+async function loadData() {
   loading.value = true
   try {
-    const res = await getPointDetails()
-    if (res.code === 200) {
-      tableData.value = res.data
-    }
-  } catch (error) {
-    ElMessage.error('获取明细列表失败')
+    const result = await getPointDetails({
+      ...query,
+      memberId: query.memberId || undefined,
+      type: query.type === '' ? undefined : query.type
+    })
+    tableData.value = result.data?.records || []
+    total.value = result.data?.total || 0
   } finally {
     loading.value = false
   }
 }
 
-const getMemberName = (id) => {
-  // 原本通过 memberList 取，现改为前后端解耦由后端返回
-  return `会员-${id}`
+function handleSearch() {
+  query.pageNum = 1
+  loadData()
 }
 
-onMounted(() => {
+function resetSearch() {
+  Object.assign(query, {
+    pageNum: 1,
+    pageSize: 10,
+    memberId: '',
+    type: ''
+  })
   loadData()
+}
+
+async function handleImport(file) {
+  if (!file.raw) return
+  await importPointDetails(file.raw)
+  ElMessage.success('导入成功')
+  loadData()
+}
+
+onMounted(async () => {
+  await Promise.all([loadMembers(), loadData()])
 })
 </script>
 
 <style scoped>
-.card-header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.search-form {
+  margin-bottom: 18px;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
 }
 </style>

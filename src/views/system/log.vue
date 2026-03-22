@@ -1,65 +1,126 @@
 <template>
-  <el-card>
+  <el-card shadow="never">
     <template #header>
-      <div class="card-header">
-        <span>系统操作日志</span>
+      <div class="page-header">
+        <span>操作日志</span>
       </div>
     </template>
 
-    <el-table :data="tableData" border style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="日志ID" width="80" />
-      <el-table-column prop="operator_name" label="操作人" width="120" />
-      <el-table-column prop="ip" label="操作IP" width="150" />
-      <el-table-column prop="module" label="所属模块" width="120">
-        <template #default="scope">
-          <el-tag type="info">{{ scope.row.module }}</el-tag>
+    <el-form :inline="true" :model="query" class="search-form">
+      <el-form-item label="操作人">
+        <el-input v-model="query.operatorName" placeholder="操作人姓名" clearable />
+      </el-form-item>
+      <el-form-item label="模块">
+        <el-input v-model="query.module" placeholder="模块名称" clearable />
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" @click="handleSearch">查询</el-button>
+        <el-button @click="resetSearch">重置</el-button>
+      </el-form-item>
+    </el-form>
+
+    <el-table v-loading="loading" :data="tableData" border>
+      <el-table-column prop="operatorName" label="操作人" width="140" />
+      <el-table-column prop="module" label="模块" width="140" />
+      <el-table-column prop="operation" label="操作名称" min-width="150" />
+      <el-table-column prop="ip" label="IP 地址" width="140" />
+      <el-table-column prop="createTime" label="创建时间" min-width="170" />
+      <el-table-column label="操作" width="100" fixed="right">
+        <template #default="{ row }">
+          <el-button link type="primary" @click="openDetail(row)">详情</el-button>
         </template>
       </el-table-column>
-      <el-table-column prop="operation" label="操作动作" width="150" />
-      <el-table-column prop="detail" label="操作明细 (JSON)" min-width="250" show-overflow-tooltip />
-      <el-table-column prop="create_time" label="操作时间" width="180" />
     </el-table>
+
+    <div class="pager">
+      <el-pagination
+        v-model:current-page="query.pageNum"
+        v-model:page-size="query.pageSize"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @current-change="loadData"
+        @size-change="handleSearch"
+      />
+    </div>
+
+    <el-dialog v-model="detailVisible" title="日志详情" width="640px">
+      <el-descriptions :column="1" border>
+        <el-descriptions-item label="操作人">{{ currentLog.operatorName }}</el-descriptions-item>
+        <el-descriptions-item label="模块">{{ currentLog.module }}</el-descriptions-item>
+        <el-descriptions-item label="操作">{{ currentLog.operation }}</el-descriptions-item>
+        <el-descriptions-item label="IP">{{ currentLog.ip }}</el-descriptions-item>
+        <el-descriptions-item label="时间">{{ currentLog.createTime }}</el-descriptions-item>
+        <el-descriptions-item label="详情">{{ currentLog.detail }}</el-descriptions-item>
+      </el-descriptions>
+    </el-dialog>
   </el-card>
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { getOperationLogs } from '../../api/system'
-import { ElMessage } from 'element-plus'
 
 const loading = ref(false)
 const tableData = ref([])
+const total = ref(0)
+const detailVisible = ref(false)
+const currentLog = ref({})
 
-const loadData = async () => {
+const query = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  operatorName: '',
+  module: ''
+})
+
+async function loadData() {
   loading.value = true
   try {
-    const res = await getOperationLogs()
-    if (res.code === 200) {
-      tableData.value = res.data
-    }
-  } catch (error) {
-    ElMessage.error('获取日志列表失败')
+    const result = await getOperationLogs(query)
+    tableData.value = result.data?.records || []
+    total.value = result.data?.total || 0
   } finally {
     loading.value = false
   }
 }
 
-const getTagType = (action) => {
-  if (action === 'POST') return 'success'
-  if (action === 'PUT') return 'warning'
-  if (action === 'DELETE') return 'danger'
-  return 'info'
+function handleSearch() {
+  query.pageNum = 1
+  loadData()
 }
 
-onMounted(() => {
+function resetSearch() {
+  Object.assign(query, {
+    pageNum: 1,
+    pageSize: 10,
+    operatorName: '',
+    module: ''
+  })
   loadData()
-})
+}
+
+function openDetail(row) {
+  currentLog.value = row
+  detailVisible.value = true
+}
+
+onMounted(loadData)
 </script>
 
 <style scoped>
-.card-header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.search-form {
+  margin-bottom: 18px;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
 }
 </style>

@@ -5,18 +5,18 @@
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>会员客单价分布 (本月)</span>
+              <span>会员客单价分布</span>
             </div>
           </template>
           <div ref="barChartRef" style="width: 100%; height: 350px;"></div>
         </el-card>
       </el-col>
-      
+
       <el-col :span="12">
         <el-card>
           <template #header>
             <div class="card-header">
-              <span>消费品类偏好 雷达图</span>
+              <span>消费偏好雷达图</span>
             </div>
           </template>
           <div ref="radarChartRef" style="width: 100%; height: 350px;"></div>
@@ -27,7 +27,7 @@
     <el-card style="margin-top: 20px;">
       <template #header>
         <div class="card-header">
-          <span>高频消费时段热力分布 (模拟)</span>
+          <span>高频消费时段分布</span>
         </div>
       </template>
       <div ref="heatmapChartRef" style="width: 100%; height: 400px;"></div>
@@ -36,7 +36,7 @@
 </template>
 
 <script setup>
-import { ref, onMounted } from 'vue'
+import { onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import { getBehaviorData } from '../../api/analysis'
 
@@ -45,43 +45,34 @@ const radarChartRef = ref(null)
 const heatmapChartRef = ref(null)
 
 onMounted(async () => {
-  let chartData = null
-  try {
-    const res = await getBehaviorData()
-    if (res.code === 200) {
-      chartData = res.data
-    }
-  } catch (error) {
-    console.error('Failed to load Behavior data:', error)
-    return
-  }
+  const result = await getBehaviorData()
+  const chartData = result.data
 
-  // 1. 客单价柱状分布图
   const barChart = echarts.init(barChartRef.value)
-  const barOption = {
+  barChart.setOption({
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
     xAxis: [
       {
         type: 'category',
-        data: ['0-50元', '51-100元', '101-200元', '201-500元', '500元以上'],
+        data: ['0-100元', '101-300元', '301-500元', '500元以上'],
         axisTick: { alignWithLabel: true }
       }
     ],
-    yAxis: [{ type: 'value', name: '人数' }],
+    yAxis: [{ type: 'value', name: '订单数' }],
     series: [
       {
-        name: '分布人数', type: 'bar', barWidth: '60%',
+        name: '分布数量',
+        type: 'bar',
+        barWidth: '60%',
         data: chartData.orderAmountHistogram,
         itemStyle: { color: '#409EFF', borderRadius: [4, 4, 0, 0] }
       }
     ]
-  }
-  barChart.setOption(barOption)
+  })
 
-  // 2. 消费偏好雷达图
   const radarChart = echarts.init(radarChartRef.value)
-  const radarOption = {
+  radarChart.setOption({
     tooltip: {},
     legend: { data: ['男性会员群', '女性会员群'], bottom: 0 },
     radar: {
@@ -112,22 +103,21 @@ onMounted(async () => {
         ]
       }
     ]
-  }
-  radarChart.setOption(radarOption)
+  })
 
-  // 3. 消费时段热力图
   const heatChart = echarts.init(heatmapChartRef.value)
-  const heatOption = {
+  heatChart.setOption({
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
       data: chartData.hotTime.times
     },
-    yAxis: { type: 'value', name: '客流量指数' },
+    yAxis: { type: 'value', name: '热度指数' },
     series: [
       {
         data: chartData.hotTime.data,
-        type: 'line', smooth: true,
+        type: 'line',
+        smooth: true,
         areaStyle: {
           color: new echarts.graphic.LinearGradient(0, 0, 0, 1, [
             { offset: 0, color: 'rgb(255, 158, 68)' },
@@ -138,8 +128,7 @@ onMounted(async () => {
         itemStyle: { color: 'rgb(255, 70, 131)' }
       }
     ]
-  }
-  heatChart.setOption(heatOption)
+  })
 
   window.addEventListener('resize', () => {
     barChart.resize()
@@ -148,6 +137,3 @@ onMounted(async () => {
   })
 })
 </script>
-
-<style scoped>
-</style>

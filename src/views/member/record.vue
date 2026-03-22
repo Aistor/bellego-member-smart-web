@@ -1,52 +1,80 @@
 <template>
-  <el-card>
+  <el-card shadow="never">
     <template #header>
-      <div class="card-header">
-        <span>消费记账</span>
-        <el-button type="primary" @click="handleAdd">新增消费记录</el-button>
+      <div class="page-header">
+        <span>消费记录</span>
+        <el-button type="primary" @click="openCreate">新增消费记录</el-button>
       </div>
     </template>
 
-    <el-table :data="tableData" border style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="流水号ID" width="100" />
-      <el-table-column label="会员姓名" width="120">
-        <template #default="scope">
-          {{ getMemberName(scope.row.member_id) }}
-        </template>
+    <el-form :inline="true" :model="query" class="search-form">
+      <el-form-item label="会员">
+        <el-select v-model="query.memberId" clearable filterable placeholder="全部会员" style="width: 180px">
+          <el-option
+            v-for="item in memberOptions"
+            :key="item.id"
+            :label="`${item.name} / ${item.phone}`"
+            :value="item.id"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="门店">
+        <el-select v-model="query.storeId" clearable placeholder="全部门店" style="width: 180px">
+          <el-option
+            v-for="item in storeOptions"
+            :key="item.id"
+            :label="item.name"
+            :value="item.id"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" @click="handleSearch">查询</el-button>
+        <el-button @click="resetSearch">重置</el-button>
+      </el-form-item>
+    </el-form>
+
+    <el-table v-loading="loading" :data="tableData" border show-overflow-tooltip stripe>
+      <el-table-column prop="id" label="记录ID" width="120" />
+      <el-table-column label="会员姓名" min-width="60">
+        <template #default="{ row }">{{ memberName(row.memberId) }}</template>
       </el-table-column>
-      <el-table-column label="消费门店" width="150">
-        <template #default="scope">
-          {{ getStoreName(scope.row.store_id) }}
-        </template>
+      <el-table-column label="门店" min-width="150">
+        <template #default="{ row }">{{ storeName(row.storeId) }}</template>
       </el-table-column>
-      <el-table-column prop="amount" label="消费金额(元)" width="120">
-        <template #default="scope">
-          <span style="color: #f56c6c; font-weight: bold;">￥{{ scope.row.amount }}</span>
-        </template>
+      <el-table-column prop="amount" label="消费金额" width="120">
+        <template #default="{ row }">￥{{ Number(row.amount || 0).toFixed(2) }}</template>
       </el-table-column>
-      <el-table-column prop="points_earned" label="获得积分" width="120">
-        <template #default="scope">
-          <span style="color: #67c23a;">+{{ scope.row.points_earned }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="consume_time" label="消费时间" min-width="160" />
+      <el-table-column prop="pointsEarned" label="获得积分" width="100" />
+      <el-table-column prop="consumeTime" label="消费时间" min-width="170" />
+      <el-table-column prop="createTime" label="创建时间" min-width="170" />
     </el-table>
 
-    <!-- 新增记账弹窗 -->
-    <el-dialog title="新增消费记账" v-model="dialogVisible" width="500px">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item label="选择会员" prop="member_id">
-          <el-select v-model="form.member_id" placeholder="请选择或搜索会员" filterable style="width: 100%">
+    <div class="pager">
+      <el-pagination
+        v-model:current-page="query.pageNum"
+        v-model:page-size="query.pageSize"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @current-change="loadData"
+        @size-change="handleSearch"
+      />
+    </div>
+
+    <el-dialog v-model="dialogVisible" title="新增消费记录" width="560px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+        <el-form-item label="会员" prop="memberId">
+          <el-select v-model="form.memberId" filterable placeholder="请选择会员" style="width: 100%">
             <el-option
-              v-for="item in memberListOptions"
+              v-for="item in memberOptions"
               :key="item.id"
-              :label="`${item.name} (${item.phone})`"
+              :label="`${item.name} / ${item.phone}`"
               :value="item.id"
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="消费门店" prop="store_id">
-          <el-select v-model="form.store_id" placeholder="请选择消费门店" style="width: 100%">
+        <el-form-item label="门店" prop="storeId">
+          <el-select v-model="form.storeId" placeholder="请选择门店" style="width: 100%">
             <el-option
               v-for="item in storeOptions"
               :key="item.id"
@@ -56,104 +84,150 @@
           </el-select>
         </el-form-item>
         <el-form-item label="消费金额" prop="amount">
-          <el-input-number v-model="form.amount" :min="0.01" :precision="2" :step="10" style="width: 100%" />
+          <el-input-number v-model="form.amount" :min="0.01" :precision="2" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="消费时间">
+          <el-date-picker
+            v-model="form.consumeTime"
+            type="datetime"
+            value-format="YYYY-MM-DD HH:mm:ss"
+            placeholder="不填则使用当前时间"
+            style="width: 100%"
+          />
         </el-form-item>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitForm">确定记账</el-button>
-        </span>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitForm">保存</el-button>
       </template>
     </el-dialog>
   </el-card>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getConsumptions, addConsumption } from '../../api/member'
+import { createConsumption, getConsumptions, getMembers } from '../../api/member'
+import { getStores } from '../../api/system'
 
 const loading = ref(false)
 const tableData = ref([])
-
+const total = ref(0)
+const memberOptions = ref([])
+const storeOptions = ref([])
 const dialogVisible = ref(false)
-const formRef = ref(null)
+const formRef = ref()
+
+const query = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  memberId: '',
+  storeId: ''
+})
 
 const form = reactive({
-  member_id: '',
-  store_id: 1, // 默认门店
-  amount: 0,
-  order_no: '',
-  remark: ''
+  memberId: '',
+  storeId: '',
+  amount: 0.01,
+  consumeTime: ''
 })
 
 const rules = {
-  member_id: [{ required: true, message: '请选择或输入会员ID', trigger: 'blur' }],
-  amount: [{ required: true, message: '请输入消费金额', trigger: 'blur' }],
-  order_no: [{ required: true, message: '请输入订单号', trigger: 'blur' }]
+  memberId: [{ required: true, message: '请选择会员', trigger: 'change' }],
+  storeId: [{ required: true, message: '请选择门店', trigger: 'change' }],
+  amount: [{ required: true, message: '请输入消费金额', trigger: 'blur' }]
 }
 
-const loadData = async () => {
+const memberName = (id) => memberOptions.value.find((item) => item.id === id)?.name || id || '-'
+const storeName = (id) => storeOptions.value.find((item) => item.id === id)?.name || id || '-'
+
+async function loadOptions() {
+  const [membersResult, storesResult] = await Promise.all([
+    getMembers({ pageNum: 1, pageSize: 200 }),
+    getStores({ pageNum: 1, pageSize: 200 })
+  ])
+  memberOptions.value = membersResult.data?.records || []
+  storeOptions.value = storesResult.data?.records || []
+  if (!form.storeId && storeOptions.value.length) {
+    form.storeId = storeOptions.value[0].id
+  }
+}
+
+async function loadData() {
   loading.value = true
   try {
-    const res = await getConsumptions()
-    if (res.code === 200) {
-      tableData.value = res.data
-    }
-  } catch (error) {
-    ElMessage.error('获取消费记录失败')
+    const result = await getConsumptions({
+      ...query,
+      memberId: query.memberId || undefined,
+      storeId: query.storeId || undefined
+    })
+    tableData.value = result.data?.records || []
+    total.value = result.data?.total || 0
   } finally {
     loading.value = false
   }
 }
 
-const getMemberName = (id) => {
-  // 此处原逻辑为根据ID换取名字，实际业务应由后端直接返回会员名称或通过联查
-  // 为简化展示，返回固定格式
-  return `会员-${id}`
-}
-
-const getStoreName = (id) => {
-  return id === 1 ? '总店' : `门店-${id}`
-}
-
-const handleAdd = () => {
+function openCreate() {
   Object.assign(form, {
-    member_id: '',
-    store_id: 1,
-    amount: 0,
-    order_no: 'ORD' + Date.now(),
-    remark: ''
+    memberId: '',
+    storeId: storeOptions.value[0]?.id || '',
+    amount: 0.01,
+    consumeTime: ''
   })
   dialogVisible.value = true
-  if (formRef.value) formRef.value.clearValidate()
 }
 
-const submitForm = () => {
-  formRef.value.validate(async valid => {
-    if (valid) {
-      try {
-        const res = await addConsumption(form)
-        ElMessage.success(`记账成功！赠送积分: ${res.data.earnedPoints}`)
-        dialogVisible.value = false
-        loadData()
-      } catch (error) {
-        ElMessage.error(error.message || '记账失败')
-      }
-    }
+function handleSearch() {
+  query.pageNum = 1
+  loadData()
+}
+
+function resetSearch() {
+  Object.assign(query, {
+    pageNum: 1,
+    pageSize: 10,
+    memberId: '',
+    storeId: ''
+  })
+  loadData()
+}
+
+function submitForm() {
+  formRef.value.validate(async (valid) => {
+    if (!valid) return
+    await createConsumption({
+      memberId: form.memberId,
+      storeId: form.storeId,
+      amount: form.amount,
+      consumeTime: form.consumeTime || undefined
+    })
+    ElMessage.success('消费记录创建成功')
+    dialogVisible.value = false
+    loadData()
   })
 }
 
-onMounted(() => {
-  loadData()
+onMounted(async () => {
+  await loadOptions()
+  await loadData()
 })
 </script>
 
 <style scoped>
-.card-header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.search-form {
+  margin-bottom: 18px;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
 }
 </style>

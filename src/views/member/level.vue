@@ -1,197 +1,178 @@
 <template>
-  <el-card>
+  <el-card shadow="never">
     <template #header>
-      <div class="card-header">
-        <span>会员等级管理</span>
-        <el-button type="primary" @click="handleAdd">新增等级</el-button>
+      <div class="page-header">
+        <span>会员等级</span>
+        <el-button type="primary" @click="openCreate">新增等级</el-button>
       </div>
     </template>
 
-    <el-table :data="tableData" border style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column prop="name" label="等级名称" width="120" />
-      <el-table-column prop="level" label="等级数值" width="100" />
-      <el-table-column prop="min_points" label="最小积分要求" width="120" />
-      <el-table-column prop="min_consumption" label="最小消费要求(元)" width="150" />
-      <el-table-column prop="discount_rate" label="折扣率" width="100" />
-      <el-table-column prop="point_rate" label="积分倍率" width="100" />
-      <el-table-column label="状态" width="80">
-        <template #default="scope">
+    <el-table v-loading="loading" :data="tableData" border>
+      <el-table-column prop="name" label="等级名称" min-width="140" />
+      <el-table-column prop="level" label="等级值" width="100" />
+      <el-table-column prop="minPoints" label="最低积分" width="120" />
+      <el-table-column prop="minConsumption" label="最低消费" width="120" />
+      <el-table-column prop="discountRate" label="折扣率" width="100" />
+      <el-table-column prop="pointRate" label="积分倍率" width="100" />
+      <el-table-column label="状态" width="100">
+        <template #default="{ row }">
           <el-switch
-            v-model="scope.row.status"
+            :model-value="row.status"
             :active-value="1"
             :inactive-value="0"
-            @change="handleStatusChange(scope.row)"
+            @change="(value) => changeStatus(row, value)"
           />
         </template>
       </el-table-column>
-      <el-table-column label="操作" min-width="150" fixed="right">
-        <template #default="scope">
-          <el-button size="small" @click="handleEdit(scope.row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="handleDelete(scope.row)">删除</el-button>
+      <el-table-column prop="createTime" label="创建时间" min-width="170" />
+      <el-table-column label="操作" width="160" fixed="right">
+        <template #default="{ row }">
+          <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+          <el-button link type="danger" @click="removeLevel(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <!-- 弹窗 -->
-    <el-dialog :title="dialogTitle" v-model="dialogVisible" width="500px">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="130px">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑等级' : '新增等级'" width="560px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="110px">
         <el-form-item label="等级名称" prop="name">
-          <el-input v-model="form.name" placeholder="例如：白银会员" />
+          <el-input v-model="form.name" />
         </el-form-item>
-        <el-form-item label="等级数值" prop="level">
-          <el-input-number v-model="form.level" :min="1" :max="100" />
+        <el-form-item label="等级值" prop="level">
+          <el-input-number v-model="form.level" :min="1" />
         </el-form-item>
-        <el-form-item label="所需最小积分" prop="min_points">
-          <el-input-number v-model="form.min_points" :min="0" />
+        <el-form-item label="最低积分" prop="minPoints">
+          <el-input-number v-model="form.minPoints" :min="0" />
         </el-form-item>
-        <el-form-item label="所需最小消费" prop="min_consumption">
-          <el-input-number v-model="form.min_consumption" :min="0" :precision="2" :step="100" />
+        <el-form-item label="最低消费" prop="minConsumption">
+          <el-input-number v-model="form.minConsumption" :min="0" :precision="2" />
         </el-form-item>
-        <el-form-item label="折扣率" prop="discount_rate">
-          <el-input-number v-model="form.discount_rate" :min="0.01" :max="1" :precision="2" :step="0.05" />
-          <div class="form-tip">示例: 0.95表示95折，1表示无折扣</div>
+        <el-form-item label="折扣率" prop="discountRate">
+          <el-input-number v-model="form.discountRate" :min="0" :max="1" :step="0.01" :precision="2" />
         </el-form-item>
-        <el-form-item label="积分倍率" prop="point_rate">
-          <el-input-number v-model="form.point_rate" :min="0.1" :max="10" :precision="1" :step="0.5" />
-          <div class="form-tip">示例: 1.5表示消费1元累积1.5分</div>
+        <el-form-item label="积分倍率" prop="pointRate">
+          <el-input-number v-model="form.pointRate" :min="0" :step="0.1" :precision="1" />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-radio-group v-model="form.status">
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">禁用</el-radio>
+          </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitForm">确定</el-button>
-        </span>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitForm">保存</el-button>
       </template>
     </el-dialog>
   </el-card>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getLevels, addLevel, updateLevel, deleteLevel, updateLevelStatus } from '../../api/member'
+import {
+  createLevel,
+  deleteLevel,
+  getLevels,
+  updateLevel,
+  updateLevelStatus
+} from '../../api/member'
 
 const loading = ref(false)
 const tableData = ref([])
-
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const dialogTitle = ref('')
-const formRef = ref(null)
+const formRef = ref()
 
 const form = reactive({
-  id: undefined,
+  id: '',
   name: '',
   level: 1,
-  min_points: 0,
-  min_consumption: 0,
-  discount_rate: 1,
-  point_rate: 1
+  minPoints: 0,
+  minConsumption: 0,
+  discountRate: 1,
+  pointRate: 1,
+  status: 1
 })
 
 const rules = {
   name: [{ required: true, message: '请输入等级名称', trigger: 'blur' }],
-  level: [{ required: true, message: '请输入等级数值', trigger: 'blur' }]
+  level: [{ required: true, message: '请输入等级值', trigger: 'blur' }]
 }
 
-const loadData = async () => {
+async function loadData() {
   loading.value = true
   try {
-    const res = await getLevels()
-    if (res.code === 200) {
-      tableData.value = res.data
-    }
-  } catch (error) {
-    ElMessage.error('获取等级列表失败')
+    const result = await getLevels()
+    tableData.value = result.data || []
   } finally {
     loading.value = false
   }
 }
 
-const handleStatusChange = async (row) => {
-  try {
-    await updateLevelStatus(row.id, row.status)
-    ElMessage.success(`已${row.status === 1 ? '启用' : '禁用'}等级: ${row.name}`)
-  } catch (error) {
-    row.status = row.status === 1 ? 0 : 1
-    ElMessage.error(error.message || '操作失败')
-  }
-}
-
-const handleAdd = () => {
-  isEdit.value = false
-  dialogTitle.value = '新增等级'
+function resetForm() {
   Object.assign(form, {
-    id: undefined,
+    id: '',
     name: '',
-    level: tableData.value.length + 1,
-    min_points: 0,
-    min_consumption: 0,
-    discount_rate: 1,
-    point_rate: 1
+    level: 1,
+    minPoints: 0,
+    minConsumption: 0,
+    discountRate: 1,
+    pointRate: 1,
+    status: 1
   })
-  dialogVisible.value = true
-  if (formRef.value) formRef.value.clearValidate()
 }
 
-const handleEdit = (row) => {
+function openCreate() {
+  isEdit.value = false
+  resetForm()
+  dialogVisible.value = true
+}
+
+function openEdit(row) {
   isEdit.value = true
-  dialogTitle.value = '编辑等级'
-  Object.assign(form, row)
+  Object.assign(form, { ...row })
   dialogVisible.value = true
-  if (formRef.value) formRef.value.clearValidate()
 }
 
-const handleDelete = (row) => {
-  ElMessageBox.confirm(`确认删除等级 [${row.name}] 吗？`, '提示', {
+async function changeStatus(row, value) {
+  await updateLevelStatus(row.id, value)
+  row.status = value
+  ElMessage.success('状态更新成功')
+}
+
+async function removeLevel(row) {
+  await ElMessageBox.confirm(`确认删除等级“${row.name}”？`, '提示', {
     type: 'warning'
-  }).then(async () => {
-    try {
-      await deleteLevel(row.id)
-      ElMessage.success('删除成功')
-      loadData()
-    } catch (error) {
-      ElMessage.error(error.message || '删除失败')
-    }
-  }).catch(() => {})
+  })
+  await deleteLevel(row.id)
+  ElMessage.success('等级删除成功')
+  loadData()
 }
 
-const submitForm = () => {
-  formRef.value.validate(async valid => {
-    if (valid) {
-      try {
-        if (isEdit.value) {
-          await updateLevel(form.id, form)
-          ElMessage.success('修改成功')
-        } else {
-          await addLevel(form)
-          ElMessage.success('新增成功')
-        }
-        dialogVisible.value = false
-        loadData()
-      } catch (error) {
-        ElMessage.error(error.message || '操作失败')
-      }
+function submitForm() {
+  formRef.value.validate(async (valid) => {
+    if (!valid) return
+    if (isEdit.value) {
+      await updateLevel(form.id, form)
+      ElMessage.success('等级更新成功')
+    } else {
+      await createLevel(form)
+      ElMessage.success('等级创建成功')
     }
+    dialogVisible.value = false
+    loadData()
   })
 }
 
-onMounted(() => {
-  loadData()
-})
+onMounted(loadData)
 </script>
 
 <style scoped>
-.card-header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-.form-tip {
-  font-size: 12px;
-  color: #909399;
-  line-height: 1.2;
-  margin-top: 4px;
 }
 </style>

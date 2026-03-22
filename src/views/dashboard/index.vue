@@ -2,39 +2,39 @@
   <div class="dashboard-container">
     <el-row :gutter="20">
       <el-col :span="6">
-        <el-card shadow="hover" class="stat-card" style="background: linear-gradient(135deg, #1890ff 0%, #36a3f7 100%); color: white;">
+        <el-card shadow="hover" class="stat-card blue-card">
           <div class="stat-header">
             <span>总会员数</span>
             <el-icon><User /></el-icon>
           </div>
           <div class="stat-value">{{ totalMembers }}</div>
-          <div class="stat-footer">较上月 <span class="trend up">+12%</span></div>
+          <div class="stat-footer">工作台聚合数据</div>
         </el-card>
       </el-col>
       <el-col :span="6">
-        <el-card shadow="hover" class="stat-card" style="background: linear-gradient(135deg, #f5222d 0%, #ff4d4f 100%); color: white;">
+        <el-card shadow="hover" class="stat-card red-card">
           <div class="stat-header">
-            <span>累计营业额 (元)</span>
+            <span>累计营业额</span>
             <el-icon><Money /></el-icon>
           </div>
           <div class="stat-value">￥{{ totalRevenue.toFixed(2) }}</div>
-          <div class="stat-footer">较上月 <span class="trend up">+8.5%</span></div>
+          <div class="stat-footer">来源于近期消费趋势聚合</div>
         </el-card>
       </el-col>
       <el-col :span="6">
-        <el-card shadow="hover" class="stat-card" style="background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%); color: white;">
+        <el-card shadow="hover" class="stat-card green-card">
           <div class="stat-header">
-            <span>累计发放积分</span>
+            <span>累计积分</span>
             <el-icon><Present /></el-icon>
           </div>
           <div class="stat-value">{{ totalPoints }}</div>
-          <div class="stat-footer">较上月 <span class="trend up">+15%</span></div>
+          <div class="stat-footer">会员总积分汇总</div>
         </el-card>
       </el-col>
       <el-col :span="6">
-        <el-card shadow="hover" class="stat-card" style="background: linear-gradient(135deg, #fa8c16 0%, #ffa940 100%); color: white;">
+        <el-card shadow="hover" class="stat-card orange-card">
           <div class="stat-header">
-            <span>卡券转化率</span>
+            <span>券核销率</span>
             <el-icon><Ticket /></el-icon>
           </div>
           <div class="stat-value">{{ couponConversionRate }}%</div>
@@ -43,7 +43,7 @@
       </el-col>
     </el-row>
 
-    <el-row :gutter="20" style="margin-top: 20px;">
+    <el-row :gutter="20" class="mt-20">
       <el-col :span="16">
         <el-card>
           <template #header>
@@ -66,7 +66,7 @@
       </el-col>
     </el-row>
 
-    <el-row :gutter="20" style="margin-top: 20px;">
+    <el-row :gutter="20" class="mt-20">
       <el-col :span="24">
         <el-card>
           <template #header>
@@ -74,21 +74,21 @@
               <span>最新大额消费记录</span>
             </div>
           </template>
-          <el-table :data="recentRecords" border style="width: 100%">
-            <el-table-column prop="id" label="流水号" width="100" />
-            <el-table-column label="会员姓名" width="150">
-              <template #default="scope">
-                {{ getMemberName(scope.row.member_id) }}
+          <el-table :data="recentRecords" border style="width: 100%" show-overflow-tooltip stripe>
+            <el-table-column prop="id" label="记录ID" width="100" />
+            <el-table-column label="会员" width="160">
+              <template #default="{ row }">
+                {{ getMemberName(row.member_id) }}
               </template>
             </el-table-column>
-            <el-table-column prop="amount" label="消费金额(元)">
-              <template #default="scope">
-                <span style="color: #f56c6c; font-weight: bold;">￥{{ scope.row.amount }}</span>
+            <el-table-column prop="amount" label="消费金额">
+              <template #default="{ row }">
+                <span class="expense-text">￥{{ row.amount }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="points_earned" label="获得积分">
-              <template #default="scope">
-                <span style="color: #67c23a;">+{{ scope.row.points_earned }}</span>
+              <template #default="{ row }">
+                <span class="point-text">+{{ row.points_earned }}</span>
               </template>
             </el-table-column>
             <el-table-column prop="consume_time" label="消费时间" width="200" />
@@ -100,13 +100,10 @@
 </template>
 
 <script setup>
-import { ref, onMounted, computed } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
-// 不再直接引入数组，改为调用模拟接口，为了演示，我们可以通过 Promise.all 抓取数据
-// 但更好的做法是，将 Dashboard 的聚合数据单独作为一个统一接口放在 analysis 里
 import { getDashboardSummary } from '../../api/analysis'
 
-// ----- State -----
 const totalMembers = ref(0)
 const totalRevenue = ref(0)
 const totalPoints = ref(0)
@@ -121,28 +118,23 @@ const couponConversionRate = computed(() => {
   return ((totalUsedCoupons.value / totalIssuedCoupons.value) * 100).toFixed(1)
 })
 
-const getMemberName = (id) => {
-  // 后端返回时已经携带了名字在 recentRecords 中（模拟接口会处理好）
-  return id
-}
+const getMemberName = (id) => id
 
-// ----- 图表渲染 -----
 const lineChartRef = ref(null)
 const pieChartRef = ref(null)
 
-const renderCharts = () => {
-  // 渲染折线图
+function renderCharts() {
   const lineChart = echarts.init(lineChartRef.value)
   const lineOption = {
     tooltip: { trigger: 'axis' },
     xAxis: {
       type: 'category',
-      data: ['03-01', '03-02', '03-03', '03-04', '03-05', '03-06', '03-07']
+      data: lineData.value.map(item => item.consumeDate),
     },
-    yAxis: { type: 'value', name: '营业额 (元)' },
+    yAxis: { type: 'value', name: '营业额' },
     series: [
       {
-        data: lineData.value,
+        data: lineData.value.map(item => Number(item.totalAmount || 0)),
         type: 'line',
         smooth: true,
         areaStyle: {
@@ -157,7 +149,6 @@ const renderCharts = () => {
   }
   lineChart.setOption(lineOption)
 
-  // 渲染饼图
   const pieChart = echarts.init(pieChartRef.value)
   const pieOption = {
     tooltip: { trigger: 'item' },
@@ -167,11 +158,12 @@ const renderCharts = () => {
         name: '等级分布',
         type: 'pie',
         radius: ['40%', '70%'],
+        center: ['50%', '40%'],
         avoidLabelOverlap: false,
         itemStyle: {
-          borderRadius: 10,
+          borderRadius: 8,
           borderColor: '#fff',
-          borderWidth: 2
+          borderWidth: 1.5
         },
         label: { show: false, position: 'center' },
         emphasis: {
@@ -190,41 +182,54 @@ const renderCharts = () => {
   })
 }
 
-const loadData = async () => {
-  try {
-    const res = await getDashboardSummary()
-    if (res.code === 200) {
-      const data = res.data
-      totalMembers.value = data.totalMembers
-      totalRevenue.value = data.totalRevenue
-      totalPoints.value = data.totalPoints
-      totalIssuedCoupons.value = data.totalIssuedCoupons
-      totalUsedCoupons.value = data.totalUsedCoupons
-      recentRecords.value = data.recentRecords
-      lineData.value = data.lineData
-      pieData.value = data.pieData
-      
-      // 数据加载完后渲染图表
-      renderCharts()
-    }
-  } catch (error) {
-    console.error('Failed to load dashboard data:', error)
-  }
+async function loadData() {
+  const result = await getDashboardSummary()
+  const data = result.data
+  totalMembers.value = data.totalMembers
+  totalRevenue.value = Number(data.totalRevenue || 0)
+  totalPoints.value = data.totalPoints
+  totalIssuedCoupons.value = data.totalIssuedCoupons
+  totalUsedCoupons.value = data.totalUsedCoupons
+  recentRecords.value = data.recentRecords
+  lineData.value = data.lineData
+  pieData.value = data.pieData
+  renderCharts()
 }
 
-onMounted(() => {
-  loadData()
-})
+onMounted(loadData)
 </script>
 
 <style scoped>
 .dashboard-container {
   padding: 10px;
 }
+
+.mt-20 {
+  margin-top: 20px;
+}
+
 .stat-card {
   border: none;
   border-radius: 8px;
+  color: #fff;
 }
+
+.blue-card {
+  background: linear-gradient(135deg, #1890ff 0%, #36a3f7 100%);
+}
+
+.red-card {
+  background: linear-gradient(135deg, #f5222d 0%, #ff4d4f 100%);
+}
+
+.green-card {
+  background: linear-gradient(135deg, #52c41a 0%, #73d13d 100%);
+}
+
+.orange-card {
+  background: linear-gradient(135deg, #fa8c16 0%, #ffa940 100%);
+}
+
 .stat-header {
   display: flex;
   justify-content: space-between;
@@ -232,22 +237,28 @@ onMounted(() => {
   font-size: 14px;
   opacity: 0.9;
 }
+
 .stat-value {
   font-size: 28px;
   font-weight: bold;
   margin: 15px 0;
 }
+
 .stat-footer {
   font-size: 13px;
   opacity: 0.9;
 }
-.trend {
-  font-weight: bold;
-}
-.trend.up {
-  color: #fff;
-}
+
 .card-header {
   font-weight: bold;
+}
+
+.expense-text {
+  color: #f56c6c;
+  font-weight: bold;
+}
+
+.point-text {
+  color: #67c23a;
 }
 </style>

@@ -1,19 +1,31 @@
 <template>
-  <el-card>
+  <el-card shadow="never">
     <template #header>
-      <div class="card-header">
+      <div class="page-header">
         <span>会员列表</span>
-        <el-button type="primary" @click="handleAdd">新增会员</el-button>
+        <el-button type="primary" @click="openCreate">新增会员</el-button>
       </div>
     </template>
-    
-    <!-- 搜索表单 -->
-    <el-form :inline="true" :model="searchForm" class="search-form">
-      <el-form-item label="会员卡号">
-        <el-input v-model="searchForm.card_number" placeholder="请输入会员卡号" clearable />
+
+    <el-form :inline="true" :model="query" class="search-form">
+      <el-form-item label="关键词">
+        <el-input v-model="query.keyword" placeholder="姓名/手机号/卡号" clearable />
       </el-form-item>
-      <el-form-item label="手机号">
-        <el-input v-model="searchForm.phone" placeholder="请输入手机号" clearable />
+      <el-form-item label="会员等级">
+        <el-select v-model="query.levelId" placeholder="全部等级" clearable style="width: 180px">
+          <el-option
+            v-for="item in levelOptions"
+            :key="item.id"
+            :label="item.name"
+            :value="item.id"
+          />
+        </el-select>
+      </el-form-item>
+      <el-form-item label="状态">
+        <el-select v-model="query.status" placeholder="全部状态" clearable style="width: 140px">
+          <el-option label="启用" :value="1" />
+          <el-option label="禁用" :value="0" />
+        </el-select>
       </el-form-item>
       <el-form-item>
         <el-button type="primary" @click="handleSearch">查询</el-button>
@@ -21,78 +33,56 @@
       </el-form-item>
     </el-form>
 
-    <!-- 会员列表表格 -->
-    <el-table :data="tableData" border style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column prop="card_number" label="会员卡号" width="150" />
-      <el-table-column prop="name" label="姓名" width="100" />
-      <el-table-column label="性别" width="80">
-        <template #default="scope">
-          {{ scope.row.gender === 1 ? '男' : (scope.row.gender === 2 ? '女' : '未知') }}
+    <el-table v-loading="loading" :data="tableData" border>
+      <el-table-column prop="cardNumber" label="会员卡号" min-width="150" />
+      <el-table-column prop="name" label="会员姓名" width="120" />
+      <el-table-column prop="phone" label="手机号" width="130" />
+      <el-table-column label="性别" width="90">
+        <template #default="{ row }">{{ genderText(row.gender) }}</template>
+      </el-table-column>
+      <el-table-column label="等级" width="120">
+        <template #default="{ row }">
+          <el-tag>{{ levelName(row.levelId) }}</el-tag>
         </template>
       </el-table-column>
-      <el-table-column prop="phone" label="手机号" width="120" />
-      <el-table-column label="会员等级" width="100">
-        <template #default="scope">
-          <el-tag :type="getLevelTagType(scope.row.level_id)">
-            {{ getLevelName(scope.row.level_id) }}
-          </el-tag>
-        </template>
+      <el-table-column prop="totalPoints" label="总积分" width="100" />
+      <el-table-column prop="totalConsumption" label="累计消费" width="120">
+        <template #default="{ row }">￥{{ Number(row.totalConsumption || 0).toFixed(2) }}</template>
       </el-table-column>
-      <el-table-column prop="total_points" label="总积分" width="80" />
-      <el-table-column prop="total_consumption" label="总消费(元)" width="100" />
-      <el-table-column label="状态" width="80">
-        <template #default="scope">
+      <el-table-column prop="lastConsumeTime" label="最后消费时间" min-width="170" />
+      <el-table-column label="状态" width="100">
+        <template #default="{ row }">
           <el-switch
-            v-model="scope.row.status"
+            :model-value="row.status"
             :active-value="1"
             :inactive-value="0"
-            @change="handleStatusChange(scope.row)"
+            @change="(value) => changeStatus(row, value)"
           />
         </template>
       </el-table-column>
-      <el-table-column prop="create_time" label="创建时间" width="160" />
-      <el-table-column label="操作" width="180" fixed="right">
-        <template #default="scope">
-          <el-button size="small" @click="handleEdit(scope.row)">编辑</el-button>
+      <el-table-column prop="createTime" label="创建时间" min-width="170" />
+      <el-table-column label="操作" width="120" fixed="right">
+        <template #default="{ row }">
+          <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <!-- 分页 -->
-    <div class="pagination-container">
+    <div class="pager">
       <el-pagination
-        v-model:current-page="page.currentPage"
-        v-model:page-size="page.pageSize"
-        :page-sizes="[10, 20, 50, 100]"
+        v-model:current-page="query.pageNum"
+        v-model:page-size="query.pageSize"
+        :total="total"
         layout="total, sizes, prev, pager, next, jumper"
-        :total="page.total"
-        @size-change="handleSizeChange"
-        @current-change="handleCurrentChange"
+        @current-change="loadData"
+        @size-change="handleSearch"
       />
     </div>
 
-    <!-- 新增/编辑弹窗 -->
-    <el-dialog :title="dialogTitle" v-model="dialogVisible" width="500px">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
-        <el-form-item label="会员卡号" prop="card_number">
-          <el-input v-model="form.card_number" :disabled="isEdit" placeholder="自动生成或手动输入" />
-        </el-form-item>
-        <el-form-item label="姓名" prop="name">
-          <el-input v-model="form.name" />
-        </el-form-item>
-        <el-form-item label="手机号" prop="phone">
-          <el-input v-model="form.phone" />
-        </el-form-item>
-        <el-form-item label="性别">
-          <el-radio-group v-model="form.gender">
-            <el-radio :label="1">男</el-radio>
-            <el-radio :label="2">女</el-radio>
-            <el-radio :label="0">未知</el-radio>
-          </el-radio-group>
-        </el-form-item>
-        <el-form-item label="会员等级" prop="level_id">
-          <el-select v-model="form.level_id" placeholder="请选择等级" style="width: 100%">
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑会员' : '新增会员'" width="560px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
+        <el-form-item label="会员等级" prop="levelId">
+          <el-select v-model="form.levelId" placeholder="请选择会员等级" style="width: 100%">
             <el-option
               v-for="item in levelOptions"
               :key="item.id"
@@ -101,202 +91,212 @@
             />
           </el-select>
         </el-form-item>
+        <el-form-item label="会员卡号" prop="cardNumber">
+          <el-input v-model="form.cardNumber" />
+        </el-form-item>
+        <el-form-item label="会员姓名" prop="name">
+          <el-input v-model="form.name" />
+        </el-form-item>
+        <el-form-item label="手机号" prop="phone">
+          <el-input v-model="form.phone" />
+        </el-form-item>
+        <el-form-item label="性别" prop="gender">
+          <el-radio-group v-model="form.gender">
+            <el-radio :value="1">男</el-radio>
+            <el-radio :value="0">女</el-radio>
+          </el-radio-group>
+        </el-form-item>
         <el-form-item label="生日">
-          <el-date-picker v-model="form.birthday" type="date" placeholder="选择日期" value-format="YYYY-MM-DD" style="width: 100%" />
+          <el-date-picker
+            v-model="form.birthday"
+            type="date"
+            value-format="YYYY-MM-DD"
+            placeholder="请选择生日"
+            style="width: 100%"
+          />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-radio-group v-model="form.status">
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">禁用</el-radio>
+          </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitForm">确定</el-button>
-        </span>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitForm">保存</el-button>
       </template>
     </el-dialog>
   </el-card>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage } from 'element-plus'
-import { getMembers, addMember, updateMember, updateMemberStatus } from '../../api/member'
-import { getLevels } from '../../api/member'
+import {
+  createMember,
+  getLevels,
+  getMembers,
+  updateMember,
+  updateMemberStatus
+} from '../../api/member'
 
-// State
 const loading = ref(false)
 const tableData = ref([])
+const total = ref(0)
 const levelOptions = ref([])
-
-const searchForm = reactive({
-  card_number: '',
-  phone: ''
-})
-
-const page = reactive({
-  currentPage: 1,
-  pageSize: 10,
-  total: 0
-})
-
-// Dialog Form
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const dialogTitle = ref('')
-const formRef = ref(null)
+const formRef = ref()
+
+const query = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  keyword: '',
+  levelId: '',
+  status: ''
+})
 
 const form = reactive({
-  id: undefined,
-  card_number: '',
+  id: '',
+  levelId: '',
+  cardNumber: '',
   name: '',
   phone: '',
   gender: 1,
-  level_id: 1,
-  birthday: ''
+  birthday: '',
+  status: 1
 })
 
 const rules = {
-  name: [{ required: true, message: '请输入姓名', trigger: 'blur' }],
+  cardNumber: [{ required: true, message: '请输入会员卡号', trigger: 'blur' }],
+  name: [{ required: true, message: '请输入会员姓名', trigger: 'blur' }],
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
-    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号码', trigger: 'blur' }
+    { pattern: /^1\\d{10}$/, message: '请输入正确的手机号', trigger: 'blur' }
   ],
-  level_id: [{ required: true, message: '请选择会员等级', trigger: 'change' }]
+  gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
+  status: [{ required: true, message: '请选择状态', trigger: 'change' }]
 }
 
-// Methods
-const getLevelName = (levelId) => {
-  const level = levelOptions.value.find(l => l.id === levelId)
-  return level ? level.name : '未知'
-}
+const genderText = (value) => (Number(value) === 1 ? '男' : '女')
+const levelName = (levelId) =>
+  levelOptions.value.find((item) => item.id === levelId)?.name || '-'
 
-const getLevelTagType = (levelId) => {
-  const map = { 1: 'info', 2: 'warning', 3: 'danger' }
-  return map[levelId] || ''
-}
-
-const loadLevels = async () => {
-  try {
-    const res = await getLevels()
-    if (res.code === 200) {
-      levelOptions.value = res.data
-    }
-  } catch (error) {
-    ElMessage.error('获取会员等级失败')
+async function loadLevels() {
+  const result = await getLevels()
+  levelOptions.value = result.data || []
+  if (!form.levelId && levelOptions.value.length) {
+    form.levelId = levelOptions.value[0].id
   }
 }
 
-const loadData = async () => {
+async function loadData() {
   loading.value = true
   try {
-    const res = await getMembers({
-      page: page.currentPage,
-      pageSize: page.pageSize,
-      card_number: searchForm.card_number,
-      phone: searchForm.phone
+    const result = await getMembers({
+      ...query,
+      levelId: query.levelId || undefined,
+      status: query.status === '' ? undefined : query.status
     })
-    if (res.code === 200) {
-      tableData.value = res.data.records
-      page.total = res.data.total
-    }
-  } catch (error) {
-    ElMessage.error('获取列表失败')
+    tableData.value = result.data?.records || []
+    total.value = result.data?.total || 0
   } finally {
     loading.value = false
   }
 }
 
-const handleSearch = () => {
-  page.currentPage = 1
-  loadData()
-}
-
-const resetSearch = () => {
-  searchForm.card_number = ''
-  searchForm.phone = ''
-  handleSearch()
-}
-
-const handleSizeChange = (val) => {
-  page.pageSize = val
-  loadData()
-}
-
-const handleCurrentChange = (val) => {
-  page.currentPage = val
-  loadData()
-}
-
-const handleStatusChange = async (row) => {
-  try {
-    await updateMemberStatus(row.id, row.status)
-    ElMessage.success(`已${row.status === 1 ? '启用' : '禁用'}会员: ${row.name}`)
-  } catch (error) {
-    row.status = row.status === 1 ? 0 : 1 // 恢复原始状态
-    ElMessage.error(error.message || '操作失败')
-  }
-}
-
-const handleAdd = () => {
-  isEdit.value = false
-  dialogTitle.value = '新增会员'
+function resetForm() {
   Object.assign(form, {
-    id: undefined,
-    card_number: 'VIP' + Date.now().toString().slice(-8),
+    id: '',
+    levelId: levelOptions.value[0]?.id || '',
+    cardNumber: '',
     name: '',
     phone: '',
     gender: 1,
-    level_id: 1,
-    birthday: ''
+    birthday: '',
+    status: 1
   })
-  dialogVisible.value = true
-  if (formRef.value) formRef.value.clearValidate()
 }
 
-const handleEdit = (row) => {
+function openCreate() {
+  isEdit.value = false
+  resetForm()
+  dialogVisible.value = true
+}
+
+function openEdit(row) {
   isEdit.value = true
-  dialogTitle.value = '编辑会员'
-  Object.assign(form, row)
+  Object.assign(form, {
+    id: row.id,
+    levelId: row.levelId,
+    cardNumber: row.cardNumber,
+    name: row.name,
+    phone: row.phone,
+    gender: row.gender,
+    birthday: row.birthday,
+    status: row.status
+  })
   dialogVisible.value = true
-  if (formRef.value) formRef.value.clearValidate()
 }
 
-const submitForm = () => {
-  formRef.value.validate(async valid => {
-    if (valid) {
-      try {
-        if (isEdit.value) {
-          await updateMember(form.id, form)
-          ElMessage.success('修改成功')
-        } else {
-          await addMember(form)
-          ElMessage.success('新增成功')
-        }
-        dialogVisible.value = false
-        loadData()
-      } catch (error) {
-        ElMessage.error(error.message || '操作失败')
-      }
+function handleSearch() {
+  query.pageNum = 1
+  loadData()
+}
+
+function resetSearch() {
+  Object.assign(query, {
+    pageNum: 1,
+    pageSize: 10,
+    keyword: '',
+    levelId: '',
+    status: ''
+  })
+  loadData()
+}
+
+async function changeStatus(row, value) {
+  await updateMemberStatus(row.id, value)
+  row.status = value
+  ElMessage.success('状态更新成功')
+}
+
+function submitForm() {
+  formRef.value.validate(async (valid) => {
+    if (!valid) return
+    if (isEdit.value) {
+      await updateMember(form.id, form)
+      ElMessage.success('会员更新成功')
+    } else {
+      await createMember(form)
+      ElMessage.success('会员创建成功')
     }
+    dialogVisible.value = false
+    loadData()
   })
 }
 
-onMounted(() => {
-  loadLevels()
-  loadData()
+onMounted(async () => {
+  await loadLevels()
+  await loadData()
 })
 </script>
 
 <style scoped>
-.card-header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
 }
+
 .search-form {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
-.pagination-container {
-  margin-top: 20px;
+
+.pager {
   display: flex;
   justify-content: flex-end;
+  margin-top: 18px;
 }
 </style>

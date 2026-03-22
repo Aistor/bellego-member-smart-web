@@ -1,178 +1,230 @@
 <template>
-  <el-card>
+  <el-card shadow="never">
     <template #header>
-      <div class="card-header">
-        <span>多门店管理</span>
-        <el-button type="primary" @click="handleAdd">新增门店</el-button>
+      <div class="page-header">
+        <span>门店管理</span>
+        <el-button type="primary" @click="openCreate">新增门店</el-button>
       </div>
     </template>
 
-    <el-table :data="tableData" border style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column prop="name" label="门店名称" width="200" />
-      <el-table-column prop="code" label="门店编码" width="120" />
-      <el-table-column prop="address" label="地址" min-width="250" />
+    <el-form :inline="true" :model="query" class="search-form">
+      <el-form-item label="关键词">
+        <el-input v-model="query.keyword" placeholder="名称/编码" clearable />
+      </el-form-item>
+      <el-form-item label="状态">
+        <el-select v-model="query.status" clearable placeholder="全部状态" style="width: 140px">
+          <el-option label="启用" :value="1" />
+          <el-option label="禁用" :value="0" />
+        </el-select>
+      </el-form-item>
+      <el-form-item>
+        <el-button type="primary" @click="handleSearch">查询</el-button>
+        <el-button @click="resetSearch">重置</el-button>
+      </el-form-item>
+    </el-form>
+
+    <el-table v-loading="loading" :data="tableData" border>
+      <el-table-column prop="name" label="门店名称" min-width="180" />
+      <el-table-column prop="code" label="门店编码" width="140" />
+      <el-table-column prop="address" label="门店地址" min-width="220" />
       <el-table-column prop="phone" label="联系电话" width="150" />
-      <el-table-column label="状态" width="80">
-        <template #default="scope">
+      <el-table-column label="状态" width="100">
+        <template #default="{ row }">
           <el-switch
-            v-model="scope.row.status"
+            :model-value="row.status"
             :active-value="1"
             :inactive-value="0"
-            @change="handleStatusChange(scope.row)"
+            @change="(value) => changeStatus(row, value)"
           />
         </template>
       </el-table-column>
-      <el-table-column prop="create_time" label="创建时间" width="180" />
-      <el-table-column label="操作" width="150" fixed="right">
-        <template #default="scope">
-          <el-button size="small" @click="handleEdit(scope.row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="handleDelete(scope.row)">删除</el-button>
+      <el-table-column prop="createTime" label="创建时间" min-width="170" />
+      <el-table-column label="操作" width="160" fixed="right">
+        <template #default="{ row }">
+          <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+          <el-button link type="danger" @click="removeStore(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <el-dialog :title="dialogTitle" v-model="dialogVisible" width="500px">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="100px">
+    <div class="pager">
+      <el-pagination
+        v-model:current-page="query.pageNum"
+        v-model:page-size="query.pageSize"
+        :total="total"
+        layout="total, sizes, prev, pager, next, jumper"
+        @current-change="loadData"
+        @size-change="handleSearch"
+      />
+    </div>
+
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑门店' : '新增门店'" width="560px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="100px">
         <el-form-item label="门店名称" prop="name">
-          <el-input v-model="form.name" placeholder="请输入门店名称" />
+          <el-input v-model="form.name" />
         </el-form-item>
         <el-form-item label="门店编码" prop="code">
-          <el-input v-model="form.code" placeholder="系统唯一编码" :disabled="isEdit" />
+          <el-input v-model="form.code" :disabled="isEdit" />
         </el-form-item>
-        <el-form-item label="详细地址" prop="address">
-          <el-input type="textarea" v-model="form.address" placeholder="请输入详细地址" />
+        <el-form-item label="门店地址" prop="address">
+          <el-input v-model="form.address" type="textarea" />
         </el-form-item>
         <el-form-item label="联系电话" prop="phone">
-          <el-input v-model="form.phone" placeholder="门店联系方式" />
+          <el-input v-model="form.phone" />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-radio-group v-model="form.status">
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">禁用</el-radio>
+          </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitForm">确定</el-button>
-        </span>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitForm">保存</el-button>
       </template>
     </el-dialog>
   </el-card>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getStores, addStore, updateStore, deleteStore, updateStoreStatus } from '../../api/system'
+import {
+  createStore,
+  deleteStore,
+  getStores,
+  updateStore,
+  updateStoreStatus
+} from '../../api/system'
 
 const loading = ref(false)
 const tableData = ref([])
-
+const total = ref(0)
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const dialogTitle = ref('')
-const formRef = ref(null)
+const formRef = ref()
+
+const query = reactive({
+  pageNum: 1,
+  pageSize: 10,
+  keyword: '',
+  status: ''
+})
 
 const form = reactive({
-  id: undefined,
+  id: '',
   name: '',
+  code: '',
   address: '',
-  manager: '',
-  phone: ''
+  phone: '',
+  status: 1
 })
 
 const rules = {
   name: [{ required: true, message: '请输入门店名称', trigger: 'blur' }],
-  manager: [{ required: true, message: '请输入店长姓名', trigger: 'blur' }],
+  code: [{ required: true, message: '请输入门店编码', trigger: 'blur' }],
+  address: [{ required: true, message: '请输入门店地址', trigger: 'blur' }],
   phone: [{ required: true, message: '请输入联系电话', trigger: 'blur' }]
 }
 
-const loadData = async () => {
+async function loadData() {
   loading.value = true
   try {
-    const res = await getStores()
-    if (res.code === 200) {
-      tableData.value = res.data
-    }
-  } catch (error) {
-    ElMessage.error('获取门店列表失败')
+    const result = await getStores({
+      ...query,
+      status: query.status === '' ? undefined : query.status
+    })
+    tableData.value = result.data?.records || []
+    total.value = result.data?.total || 0
   } finally {
     loading.value = false
   }
 }
 
-const handleStatusChange = async (row) => {
-  try {
-    await updateStoreStatus(row.id, row.status)
-    ElMessage.success(`已${row.status === 1 ? '启用' : '停用'}门店: ${row.name}`)
-  } catch (error) {
-    row.status = row.status === 1 ? 0 : 1
-    ElMessage.error(error.message || '操作失败')
-  }
-}
-
-const handleAdd = () => {
-  isEdit.value = false
-  dialogTitle.value = '新增门店'
+function resetForm() {
   Object.assign(form, {
-    id: undefined,
+    id: '',
     name: '',
+    code: '',
     address: '',
-    manager: '',
-    phone: ''
+    phone: '',
+    status: 1
   })
-  dialogVisible.value = true
-  if (formRef.value) formRef.value.clearValidate()
 }
 
-const handleEdit = (row) => {
+function openCreate() {
+  isEdit.value = false
+  resetForm()
+  dialogVisible.value = true
+}
+
+function openEdit(row) {
   isEdit.value = true
-  dialogTitle.value = '编辑门店'
-  Object.assign(form, row)
+  Object.assign(form, { ...row })
   dialogVisible.value = true
-  if (formRef.value) formRef.value.clearValidate()
 }
 
-const handleDelete = (row) => {
-  ElMessageBox.confirm(`确认删除门店 [${row.name}] 吗？`, '提示', {
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await deleteStore(row.id)
-      ElMessage.success('删除成功')
-      loadData()
-    } catch (error) {
-      ElMessage.error(error.message || '删除失败')
-    }
-  }).catch(() => {})
+function handleSearch() {
+  query.pageNum = 1
+  loadData()
 }
 
-const submitForm = () => {
-  formRef.value.validate(async valid => {
-    if (valid) {
-      try {
-        if (isEdit.value) {
-          await updateStore(form.id, form)
-          ElMessage.success('修改成功')
-        } else {
-          await addStore(form)
-          ElMessage.success('新增成功')
-        }
-        dialogVisible.value = false
-        loadData()
-      } catch (error) {
-        ElMessage.error(error.message || '操作失败')
-      }
+function resetSearch() {
+  Object.assign(query, {
+    pageNum: 1,
+    pageSize: 10,
+    keyword: '',
+    status: ''
+  })
+  loadData()
+}
+
+async function changeStatus(row, value) {
+  await updateStoreStatus(row.id, value)
+  row.status = value
+  ElMessage.success('状态更新成功')
+}
+
+async function removeStore(row) {
+  await ElMessageBox.confirm(`确认删除门店“${row.name}”？`, '提示', { type: 'warning' })
+  await deleteStore(row.id)
+  ElMessage.success('删除成功')
+  loadData()
+}
+
+function submitForm() {
+  formRef.value.validate(async (valid) => {
+    if (!valid) return
+    if (isEdit.value) {
+      await updateStore(form.id, form)
+      ElMessage.success('门店更新成功')
+    } else {
+      await createStore(form)
+      ElMessage.success('门店创建成功')
     }
+    dialogVisible.value = false
+    loadData()
   })
 }
 
-onMounted(() => {
-  loadData()
-})
+onMounted(loadData)
 </script>
 
 <style scoped>
-.card-header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
+}
+
+.search-form {
+  margin-bottom: 18px;
+}
+
+.pager {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 18px;
 }
 </style>

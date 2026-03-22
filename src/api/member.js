@@ -1,158 +1,100 @@
-import { memberList, memberLevelList, consumptionRecordList } from '../mock/data'
+import request from '../utils/request'
 
-// 模拟网络请求延迟
-const delay = (ms = 300) => new Promise(resolve => setTimeout(resolve, ms))
-
-// 生成统一的成功响应格式
-const successResponse = (data) => ({
-    code: 200,
-    message: '操作成功',
-    data
-})
-
-// === 1. 会员管理 (Member) ===
-
-export const getMembers = async (params = {}) => {
-    await delay()
-    let list = [...memberList]
-
-    if (params.card_number) {
-        list = list.filter(item => item.card_number.includes(params.card_number))
-    }
-    if (params.phone) {
-        list = list.filter(item => item.phone.includes(params.phone))
-    }
-
-    // 简易分页模拟
-    const total = list.length
-    const page = params.page || 1
-    const pageSize = params.pageSize || 10
-    const start = (page - 1) * pageSize
-    const records = list.slice(start, start + pageSize)
-
-    return successResponse({ records, total })
+const pageDefaults = {
+  pageNum: 1,
+  pageSize: 10
 }
 
-export const getMemberById = async (id) => {
-    await delay(100)
-    const member = memberList.find(m => m.id === id)
-    return successResponse(member)
-}
-
-export const addMember = async (data) => {
-    await delay()
-    const newMember = {
-        ...data,
-        id: memberList.length > 0 ? Math.max(...memberList.map(m => m.id)) + 1 : 1,
-        total_points: 0,
-        total_consumption: 0,
-        status: 1,
-        create_time: new Date().toISOString().replace('T', ' ').slice(0, 19)
+export function getMembers(params = {}) {
+  return request.get('/v1/members', {
+    params: {
+      ...pageDefaults,
+      ...params
     }
-    memberList.unshift(newMember)
-    return successResponse(newMember)
+  })
 }
 
-export const updateMember = async (id, data) => {
-    await delay()
-    const index = memberList.findIndex(m => m.id === id)
-    if (index !== -1) {
-        memberList[index] = { ...memberList[index], ...data, update_time: new Date().toISOString().replace('T', ' ').slice(0, 19) }
-        return successResponse(memberList[index])
+export function getMemberDetail(id) {
+  return request.get(`/v1/members/${id}`)
+}
+
+export function createMember(data) {
+  return request.post('/v1/members', data)
+}
+
+export function updateMember(id, data) {
+  return request.put(`/v1/members/${id}`, data)
+}
+
+export function updateMemberStatus(id, status) {
+  return request.put(`/v1/members/${id}/status`, { status })
+}
+
+export function importMembers(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post('/v1/members/import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
     }
-    return Promise.reject(new Error('会员不存在'))
+  })
 }
 
-export const updateMemberStatus = async (id, status) => {
-    await delay(150)
-    const index = memberList.findIndex(m => m.id === id)
-    if (index !== -1) {
-        memberList[index].status = status
-        return successResponse()
+export function getLevels() {
+  return request.get('/v1/levels')
+}
+
+export function getLevelDetail(id) {
+  return request.get(`/v1/levels/${id}`)
+}
+
+export function createLevel(data) {
+  return request.post('/v1/levels', data)
+}
+
+export function updateLevel(id, data) {
+  return request.put(`/v1/levels/${id}`, data)
+}
+
+export function deleteLevel(id) {
+  return request.delete(`/v1/levels/${id}`)
+}
+
+export function updateLevelStatus(id, status) {
+  return request.put(`/v1/levels/${id}/status`, { status })
+}
+
+export function getLevelCount() {
+  return request.get('/v1/levelCount')
+}
+
+export function getConsumptions(params = {}) {
+  return request.get('/v1/consumptions', {
+    params: {
+      ...pageDefaults,
+      ...params
     }
-    return Promise.reject(new Error('会员不存在'))
+  })
 }
 
-
-// === 2. 会员等级 (Member Level) ===
-
-export const getLevels = async () => {
-    await delay(200)
-    const list = [...memberLevelList].sort((a, b) => a.level - b.level)
-    return successResponse(list)
+export function getConsumptionDetail(id) {
+  return request.get(`/v1/consumptions/${id}`)
 }
 
-export const addLevel = async (data) => {
-    await delay()
-    const newLevel = {
-        ...data,
-        id: memberLevelList.length > 0 ? Math.max(...memberLevelList.map(l => l.id)) + 1 : 1,
-        status: 1,
-        create_time: new Date().toISOString().replace('T', ' ').slice(0, 19)
+export function createConsumption(data) {
+  return request.post('/v1/consumptions', data)
+}
+
+export function importConsumptions(file) {
+  const formData = new FormData()
+  formData.append('file', file)
+  return request.post('/v1/consumptions/import', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data'
     }
-    memberLevelList.push(newLevel)
-    return successResponse(newLevel)
+  })
 }
 
-export const updateLevel = async (id, data) => {
-    await delay()
-    const index = memberLevelList.findIndex(l => l.id === id)
-    if (index !== -1) {
-        memberLevelList[index] = { ...memberLevelList[index], ...data }
-        return successResponse(memberLevelList[index])
-    }
-    return Promise.reject(new Error('等级不存在'))
-}
-
-export const deleteLevel = async (id) => {
-    await delay(100)
-    const index = memberLevelList.findIndex(l => l.id === id)
-    if (index !== -1) {
-        memberLevelList.splice(index, 1)
-        return successResponse()
-    }
-    return Promise.reject(new Error('等级不存在'))
-}
-
-export const updateLevelStatus = async (id, status) => {
-    await delay(100)
-    const index = memberLevelList.findIndex(l => l.id === id)
-    if (index !== -1) {
-        memberLevelList[index].status = status
-        return successResponse()
-    }
-    return Promise.reject(new Error('等级不存在'))
-}
-
-// === 3. 消费记录 (Consumption Record) ===
-
-export const getConsumptions = async () => {
-    await delay(250)
-    const list = [...consumptionRecordList].sort((a, b) => new Date(b.consume_time) - new Date(a.consume_time))
-    return successResponse(list)
-}
-
-export const addConsumption = async (data) => {
-    await delay(400)
-    const mockPoints = Math.floor(data.amount)
-
-    const newRecord = {
-        id: consumptionRecordList.length > 0 ? Math.max(...consumptionRecordList.map(c => c.id)) + 1 : 1,
-        ...data,
-        points_earned: mockPoints,
-        consume_time: new Date().toISOString().replace('T', ' ').slice(0, 19),
-        create_time: new Date().toISOString().replace('T', ' ').slice(0, 19)
-    }
-
-    consumptionRecordList.unshift(newRecord)
-
-    // 联动更新会员数据
-    const memberIndex = memberList.findIndex(m => m.id === data.member_id)
-    if (memberIndex !== -1) {
-        memberList[memberIndex].total_points += mockPoints
-        memberList[memberIndex].total_consumption += data.amount
-        memberList[memberIndex].last_consume_time = newRecord.consume_time
-    }
-
-    return successResponse({ record: newRecord, earnedPoints: mockPoints })
+export function getRecentConsumptionTrend() {
+  return request.get('/v1/consumptions/recent')
 }

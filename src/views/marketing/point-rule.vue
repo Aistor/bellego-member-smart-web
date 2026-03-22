@@ -1,239 +1,204 @@
 <template>
-  <el-card>
+  <el-card shadow="never">
     <template #header>
-      <div class="card-header">
-        <span>积分规则配置</span>
-        <el-button type="primary" @click="handleAdd">新增规则</el-button>
+      <div class="page-header">
+        <span>积分规则</span>
+        <el-button type="primary" @click="openCreate">新增规则</el-button>
       </div>
     </template>
 
-    <el-table :data="tableData" border style="width: 100%" v-loading="loading">
-      <el-table-column prop="id" label="ID" width="60" />
-      <el-table-column prop="rule_name" label="规则名称" min-width="120" />
-      <el-table-column label="规则类型" width="100">
-        <template #default="scope">
-          <el-tag :type="scope.row.rule_type === 1 ? 'primary' : 'success'">
-            {{ scope.row.rule_type === 1 ? '消费积分' : '签到积卷' }}
-          </el-tag>
-        </template>
+    <el-table v-loading="loading" :data="tableData" border show-overflow-tooltip stripe>
+      <el-table-column prop="ruleName" label="规则名称" min-width="160" />
+      <el-table-column label="规则类型" width="120">
+        <template #default="{ row }">{{ Number(row.ruleType) === 1 ? '消费积分规则' : '签到积分规则' }}</template>
       </el-table-column>
-      <el-table-column label="适用等级" width="120">
-        <template #default="scope">
-          {{ getLevelName(scope.row.applicable_level_id) }}
-        </template>
+      <el-table-column label="适用等级" width="140">
+        <template #default="{ row }">{{ levelName(row.applicableLevelId) }}</template>
       </el-table-column>
-      <el-table-column prop="points_per_unit" label="获得积分" width="100">
-        <template #default="scope">
-          <span style="color: #67c23a;">+{{ scope.row.points_per_unit }}</span>
-        </template>
-      </el-table-column>
-      <el-table-column prop="min_amount" label="门槛条件(元)" width="120" />
-      <el-table-column prop="max_points" label="单次积分上限" width="120" />
-      <el-table-column label="状态" width="80">
-        <template #default="scope">
+      <el-table-column prop="pointsPerUnit" label="每单位积分" width="120" />
+      <el-table-column prop="minAmount" label="最低参与金额" width="130" />
+      <el-table-column prop="maxPoints" label="单次积分上限" width="130" />
+      <el-table-column label="状态" width="100">
+        <template #default="{ row }">
           <el-switch
-            v-model="scope.row.status"
+            :model-value="row.status"
             :active-value="1"
             :inactive-value="0"
-            @change="handleStatusChange(scope.row)"
+            @change="(value) => changeStatus(row, value)"
           />
         </template>
       </el-table-column>
-      <el-table-column label="操作" width="150" fixed="right">
-        <template #default="scope">
-          <el-button size="small" @click="handleEdit(scope.row)">编辑</el-button>
-          <el-button size="small" type="danger" @click="handleDelete(scope.row)">删除</el-button>
+      <el-table-column label="操作" width="160" fixed="right">
+        <template #default="{ row }">
+          <el-button link type="primary" @click="openEdit(row)">编辑</el-button>
+          <el-button link type="danger" @click="removeRule(row)">删除</el-button>
         </template>
       </el-table-column>
     </el-table>
 
-    <el-dialog :title="dialogTitle" v-model="dialogVisible" width="500px">
-      <el-form :model="form" :rules="rules" ref="formRef" label-width="120px">
-        <el-form-item label="规则名称" prop="rule_name">
-          <el-input v-model="form.rule_name" placeholder="请输入规则名称" />
+    <el-dialog v-model="dialogVisible" :title="isEdit ? '编辑规则' : '新增规则'" width="560px">
+      <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
+        <el-form-item label="规则名称" prop="ruleName">
+          <el-input v-model="form.ruleName" />
         </el-form-item>
-        <el-form-item label="规则类型" prop="rule_type">
-          <el-radio-group v-model="form.rule_type">
-            <el-radio :label="1">消费积分</el-radio>
-            <el-radio :label="2">签到积分</el-radio>
-          </el-radio-group>
+        <el-form-item label="规则类型" prop="ruleType">
+          <el-select v-model="form.ruleType" style="width: 100%">
+            <el-option label="消费积分规则" :value="1" />
+          </el-select>
         </el-form-item>
-        <el-form-item label="适用等级" prop="applicable_level_id">
-          <el-select v-model="form.applicable_level_id" clearable placeholder="不选则表示通用" style="width: 100%">
+        <el-form-item label="适用等级">
+          <el-select v-model="form.applicableLevelId" clearable placeholder="为空表示通用" style="width: 100%">
             <el-option
-              v-for="item in memberLevelListOptions"
+              v-for="item in levelOptions"
               :key="item.id"
               :label="item.name"
               :value="item.id"
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="获取积分数" prop="points_per_unit">
-          <el-input-number v-model="form.points_per_unit" :min="1" />
-          <div class="form-tip">消费或签到触发时单次获得的积分</div>
+        <el-form-item label="每单位积分" prop="pointsPerUnit">
+          <el-input-number v-model="form.pointsPerUnit" :min="1" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="最低门槛(元)" prop="min_amount" v-if="form.rule_type === 1">
-          <el-input-number v-model="form.min_amount" :min="0" :precision="2" />
+        <el-form-item label="最低参与金额">
+          <el-input-number v-model="form.minAmount" :min="0" :precision="2" style="width: 100%" />
         </el-form-item>
-        <el-form-item label="最大积分上限" prop="max_points">
-          <el-input-number v-model="form.max_points" :min="0" />
+        <el-form-item label="单次积分上限">
+          <el-input-number v-model="form.maxPoints" :min="0" style="width: 100%" />
+        </el-form-item>
+        <el-form-item label="状态" prop="status">
+          <el-radio-group v-model="form.status">
+            <el-radio :value="1">启用</el-radio>
+            <el-radio :value="0">禁用</el-radio>
+          </el-radio-group>
         </el-form-item>
       </el-form>
       <template #footer>
-        <span class="dialog-footer">
-          <el-button @click="dialogVisible = false">取消</el-button>
-          <el-button type="primary" @click="submitForm">确定</el-button>
-        </span>
+        <el-button @click="dialogVisible = false">取消</el-button>
+        <el-button type="primary" @click="submitForm">保存</el-button>
       </template>
     </el-dialog>
   </el-card>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getPointRules, addPointRule, updatePointRule, deletePointRule, updatePointRuleStatus } from '../../api/marketing'
 import { getLevels } from '../../api/member'
+import {
+  createPointRule,
+  deletePointRule,
+  getPointRules,
+  updatePointRule,
+  updatePointRuleStatus
+} from '../../api/marketing'
 
 const loading = ref(false)
 const tableData = ref([])
-const memberLevelListOptions = ref([])
-
-const getLevelName = (levelId) => {
-  if (!levelId) return '所有等级通用'
-  const level = memberLevelListOptions.value.find(l => l.id === levelId)
-  return level ? level.name : '未知等级'
-}
-
+const levelOptions = ref([])
 const dialogVisible = ref(false)
 const isEdit = ref(false)
-const dialogTitle = ref('')
-const formRef = ref(null)
-
-const typeMap = {
-  1: '消费送积分',
-  2: '签到送积分',
-  3: '充值送积分'
-}
+const formRef = ref()
 
 const form = reactive({
-  id: undefined,
-  rule_name: '',
-  rule_type: 1,
-  applicable_level_id: undefined,
-  points_per_unit: 1,
-  min_amount: 0,
-  max_points: 0
+  id: '',
+  ruleName: '',
+  ruleType: 1,
+  applicableLevelId: '',
+  pointsPerUnit: 1,
+  minAmount: 0,
+  maxPoints: 0,
+  status: 1
 })
 
 const rules = {
-  rule_name: [{ required: true, message: '请输入规则名称', trigger: 'blur' }],
-  points_per_unit: [{ required: true, message: '请输入赠送积分数值', trigger: 'blur' }]
+  ruleName: [{ required: true, message: '请输入规则名称', trigger: 'blur' }],
+  ruleType: [{ required: true, message: '请选择规则类型', trigger: 'change' }],
+  pointsPerUnit: [{ required: true, message: '请输入每单位积分', trigger: 'blur' }]
 }
 
-const loadData = async () => {
+const levelName = (id) => levelOptions.value.find((item) => item.id === id)?.name || '通用'
+
+async function loadOptions() {
+  const result = await getLevels()
+  levelOptions.value = result.data || []
+}
+
+async function loadData() {
   loading.value = true
   try {
-    const [rulesRes, levelsRes] = await Promise.all([
-      getPointRules(),
-      getLevels()
-    ])
-    if (rulesRes.code === 200) {
-      tableData.value = rulesRes.data
-    }
-    if (levelsRes.code === 200) {
-      memberLevelListOptions.value = levelsRes.data
-    }
-  } catch (error) {
-    ElMessage.error('获取规则列表失败')
+    const result = await getPointRules()
+    tableData.value = result.data || []
   } finally {
     loading.value = false
   }
 }
 
-const handleStatusChange = async (row) => {
-  try {
-    await updatePointRuleStatus(row.id, row.status)
-    ElMessage.success(`已${row.status === 1 ? '启用' : '停用'}规则: ${row.name}`)
-  } catch (error) {
-    row.status = row.status === 1 ? 0 : 1
-    ElMessage.error(error.message || '操作失败')
-  }
-}
-
-const handleAdd = () => {
-  isEdit.value = false
-  dialogTitle.value = '新增规则'
+function resetForm() {
   Object.assign(form, {
-    id: undefined,
-    rule_name: '',
-    rule_type: 1,
-    applicable_level_id: undefined,
-    points_per_unit: 1,
-    min_amount: 0,
-    max_points: 0
+    id: '',
+    ruleName: '',
+    ruleType: 1,
+    applicableLevelId: '',
+    pointsPerUnit: 1,
+    minAmount: 0,
+    maxPoints: 0,
+    status: 1
   })
-  dialogVisible.value = true
-  if (formRef.value) formRef.value.clearValidate()
 }
 
-const handleEdit = (row) => {
+function openCreate() {
+  isEdit.value = false
+  resetForm()
+  dialogVisible.value = true
+}
+
+function openEdit(row) {
   isEdit.value = true
-  dialogTitle.value = '编辑规则'
-  Object.assign(form, row)
+  Object.assign(form, { ...row })
   dialogVisible.value = true
-  if (formRef.value) formRef.value.clearValidate()
 }
 
-const handleDelete = (row) => {
-  ElMessageBox.confirm(`确认删除规则 [${row.name}] 吗？`, '提示', {
-    type: 'warning'
-  }).then(async () => {
-    try {
-      await deletePointRule(row.id)
-      ElMessage.success('删除成功')
-      loadData()
-    } catch (error) {
-      ElMessage.error(error.message || '删除失败')
-    }
-  }).catch(() => {})
+async function changeStatus(row, value) {
+  await updatePointRuleStatus(row.id, value)
+  row.status = value
+  ElMessage.success('状态更新成功')
 }
 
-const submitForm = () => {
-  formRef.value.validate(async valid => {
-    if (valid) {
-      try {
-        if (isEdit.value) {
-          await updatePointRule(form.id, form)
-          ElMessage.success('修改成功')
-        } else {
-          await addPointRule(form)
-          ElMessage.success('新增成功')
-        }
-        dialogVisible.value = false
-        loadData()
-      } catch (error) {
-        ElMessage.error(error.message || '操作失败')
-      }
+async function removeRule(row) {
+  await ElMessageBox.confirm(`确认删除规则“${row.ruleName}”？`, '提示', { type: 'warning' })
+  await deletePointRule(row.id)
+  ElMessage.success('删除成功')
+  loadData()
+}
+
+function submitForm() {
+  formRef.value.validate(async (valid) => {
+    if (!valid) return
+    const payload = {
+      ...form,
+      applicableLevelId: form.applicableLevelId || undefined
     }
+    if (isEdit.value) {
+      await updatePointRule(form.id, payload)
+      ElMessage.success('规则更新成功')
+    } else {
+      await createPointRule(payload)
+      ElMessage.success('规则创建成功')
+    }
+    dialogVisible.value = false
+    loadData()
   })
 }
 
-onMounted(() => {
-  loadData()
+onMounted(async () => {
+  await Promise.all([loadData(), loadOptions()])
 })
 </script>
 
 <style scoped>
-.card-header {
+.page-header {
   display: flex;
   justify-content: space-between;
   align-items: center;
-}
-.form-tip {
-  font-size: 12px;
-  color: #909399;
-  line-height: 1.2;
-  margin-top: 4px;
 }
 </style>
