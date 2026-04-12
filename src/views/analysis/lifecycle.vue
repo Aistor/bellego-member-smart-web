@@ -142,7 +142,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
-import { getLifecycleData } from '../../api/analysis'
+import { getMemberCategory, getMemberGrowth } from '../../api/analysis'
 
 const selectedMonth = ref('ALL')
 const availableMonths = ref([])
@@ -203,7 +203,7 @@ function renderCharts() {
 
   trendChart.setOption({
     tooltip: { trigger: 'axis' },
-    legend: { data: ['新增会员', '沉默会员', '流失会员'], bottom: 0 },
+    legend: { data: ['新增会员'], bottom: 0 },
     grid: { left: 26, right: 20, bottom: 40, top: 40, containLabel: true },
     xAxis: {
       type: 'category',
@@ -219,22 +219,6 @@ function renderCharts() {
         data: lifecycle.value.trend.newMember,
         itemStyle: { color: '#2563eb' },
         areaStyle: { color: 'rgba(37, 99, 235, 0.08)' }
-      },
-      {
-        name: '沉默会员',
-        type: 'line',
-        smooth: true,
-        connectNulls: false,
-        data: lifecycle.value.trend.silentMember,
-        itemStyle: { color: '#d97706' }
-      },
-      {
-        name: '流失会员',
-        type: 'line',
-        smooth: true,
-        connectNulls: false,
-        data: lifecycle.value.trend.lostMember,
-        itemStyle: { color: '#dc2626' }
       }
     ]
   })
@@ -277,12 +261,46 @@ function renderCharts() {
 }
 
 async function loadData() {
-  const month = selectedMonth.value === 'ALL' ? '' : selectedMonth.value
-  const result = await getLifecycleData('DAY', month)
-  lifecycle.value = result.data
+  const date = selectedMonth.value === 'ALL' ? '' : selectedMonth.value
+  
+  // 并行请求两个接口
+  const [categoryResult, growthResult] = await Promise.all([
+    getMemberCategory(date),
+    getMemberGrowth(date)
+  ])
+  
+  const categoryData = categoryResult.data
+  const growthData = growthResult.data
+  
+  lifecycle.value = {
+    ...categoryData,
+    newMemberTotal: growthData.newMemberTotal,
+    month: date || null,
+    trend: {
+      categories: growthData.categories,
+      newMember: growthData.newMember,
+      silentMember: [],
+      lostMember: []
+    }
+  }
 
-  if (!availableMonths.value.length) {
-    availableMonths.value = result.data.availableMonths || []
+  // 只在首次加载时提取可用月份
+  if (availableMonths.value.length === 0 && growthData.growthData && growthData.growthData.length > 0) {
+    const months = new Set()
+    growthData.growthData.forEach(item => {
+      if (item.month) {
+        months.add(item.month)
+      } else if (item.date) {
+        // 从日期中提取月份 (YYYY-MM-DD -> YYYY-MM)
+        const month = item.date.substring(0, 7)
+        months.add(month)
+      }
+    })
+    
+    // 转换为数组并排序
+    if (months.size > 0) {
+      availableMonths.value = Array.from(months).sort().reverse()
+    }
   }
 
   await nextTick()

@@ -212,47 +212,49 @@ export async function getRfmData(selectedMonth = 'ALL') {
   }
 }
 
-export async function getLifecycleData(period = 'DAY', month = '') {
-  const result = await request.get('/v1/analysis/lifecycle', {
-    params: {
-      period,
-      ...(month ? { month } : {})
-    }
+export async function getMemberCategory(date) {
+  const result = await request.get('/v1/analysis/category', {
+    params: { date }
   })
-  const trendEntries = Object.entries(result.data?.newTrend || {})
-  const categories = trendEntries.map(([date]) => date)
-  const newMember = trendEntries.map(([, count]) => Number(count || 0))
-  const silentMember = buildLifecycleTrendSeries(result.data?.silentTrend || {}, categories)
-  const lostMember = buildLifecycleTrendSeries(result.data?.lostTrend || {}, categories)
-  const activeCount = Number(result.data?.activeCount || 0)
-  const lostCount = Number(result.data?.lostCount || 0)
-  const totalMembers = Number(result.data?.totalMembers || 0)
-  const silentCount = Number(
-    result.data?.silentCount ?? Math.max(totalMembers - activeCount - lostCount, 0)
-  )
-  const snapshotMonth = result.data?.month || null
+  
+  const categories = result.data || []
+  const activeCount = Number(categories.find(item => item.category === '活跃会员')?.count || 0)
+  const silentCount = Number(categories.find(item => item.category === '沉默会员')?.count || 0)
+  const lostCount = Number(categories.find(item => item.category === '流失会员')?.count || 0)
+  const totalMembers = activeCount + silentCount + lostCount
 
   return {
     ...result,
     data: {
       totalMembers,
       activeCount,
-      lostCount,
       silentCount,
-      month: snapshotMonth,
-      newMemberTotal: newMember.reduce((sum, value) => sum + value, 0),
-      availableMonths: getPeriodMonthList(categories),
-      trend: {
-        categories,
-        newMember,
-        silentMember,
-        lostMember
-      },
-      distribution: [
-        { name: '活跃', value: activeCount },
-        { name: '沉默', value: silentCount },
-        { name: '流失', value: lostCount }
-      ]
+      lostCount,
+      distribution: categories.map(item => ({
+        name: item.category.replace('会员', ''),
+        value: Number(item.count || 0)
+      }))
+    }
+  }
+}
+
+export async function getMemberGrowth(date) {
+  const result = await request.get('/v1/analysis/growth', {
+    params: { date }
+  })
+  
+  const growthData = result.data || []
+  const categories = growthData.map(item => item.date)
+  const newMember = growthData.map(item => Number(item.count || 0))
+  const newMemberTotal = newMember.reduce((sum, value) => sum + value, 0)
+
+  return {
+    ...result,
+    data: {
+      categories,
+      newMember,
+      newMemberTotal,
+      growthData
     }
   }
 }
