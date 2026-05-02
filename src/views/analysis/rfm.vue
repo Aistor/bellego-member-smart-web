@@ -158,7 +158,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
-import { getRfmData } from '../../api/analysis'
+import { getRfmData, getRfmStartDate } from '../../api/analysis'
 
 const scatterChartRef = ref(null)
 const barChartRef = ref(null)
@@ -171,6 +171,29 @@ const segmentSummary = ref([])
 
 let scatterChart
 let barChart
+
+function generateMonthList(startDate) {
+  if (!startDate) return []
+  const [startYear, startMonth] = startDate.split('-').map(Number)
+  const now = new Date()
+  const endYear = now.getFullYear()
+  const endMonth = now.getMonth() + 1
+
+  const months = []
+  let year = startYear
+  let month = startMonth
+
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    months.push(`${year}-${String(month).padStart(2, '0')}`)
+    month++
+    if (month > 12) {
+      month = 1
+      year++
+    }
+  }
+
+  return months.reverse()
+}
 
 const filteredSegments = computed(() => {
   if (activeSegment.value === 'ALL') return segments.value
@@ -315,7 +338,6 @@ async function loadData() {
   totalMembers.value = Number(result.data?.totalMembers || 0)
   segments.value = result.data?.segments || []
   segmentSummary.value = result.data?.segmentSummary || []
-  availableMonths.value = (result.data?.availableMonths || []);
 
   if (!segmentSummary.value.some((item) => item.label === activeSegment.value)) {
     activeSegment.value = 'ALL'
@@ -336,6 +358,8 @@ watch(activeSegment, () => {
 })
 
 onMounted(async () => {
+  const startDate = await getRfmStartDate()
+  availableMonths.value = generateMonthList(startDate)
   await loadData()
   window.addEventListener('resize', handleResize)
 })

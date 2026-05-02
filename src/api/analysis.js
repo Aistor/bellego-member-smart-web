@@ -62,10 +62,6 @@ async function getAllPagedRecords(path, params = {}) {
   return records
 }
 
-function getPeriodMonthList(dateList) {
-  return [...new Set(dateList.filter(Boolean).map((date) => String(date).slice(0, 7)))].sort().reverse()
-}
-
 function buildLifecycleTrendSeries(trendMap, categories) {
   return categories.map((date) => {
     const rawValue = trendMap?.[date]
@@ -88,90 +84,32 @@ function getSegmentLabel(item) {
   return '一般价值客户'
 }
 
-function buildScoreMap(values, reverse = false) {
-  if (!values.length) return new Map()
-
-  const sorted = [...values].sort((a, b) => a - b)
-  const thresholdAt = (percent) => sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * percent))]
-  const thresholds = [thresholdAt(0.2), thresholdAt(0.4), thresholdAt(0.6), thresholdAt(0.8)]
-
-  const getScore = (value) => {
-    if (value <= thresholds[0]) return reverse ? 5 : 1
-    if (value <= thresholds[1]) return reverse ? 4 : 2
-    if (value <= thresholds[2]) return reverse ? 3 : 3
-    if (value <= thresholds[3]) return reverse ? 2 : 4
-    return reverse ? 1 : 5
-  }
-
-  return new Map(values.map((value) => [value, getScore(value)]))
+export async function getRfmStartDate() {
+  const result = await request.get('/v1/analysis/start-date')
+  return result.data || ''
 }
 
 export async function getRfmData(selectedMonth = 'ALL') {
-  const [members, consumptions] = await Promise.all([
-    getAllPagedRecords('/v1/members'),
-    getAllPagedRecords('/v1/consumptions')
-  ])
+  const params = {}
+  if (selectedMonth && selectedMonth !== 'ALL') {
+    params.date = selectedMonth
+  }
 
-  const availableMonths = getPeriodMonthList(consumptions.map((item) => item.consumeTime))
-  const filteredConsumptions =
-    selectedMonth && selectedMonth !== 'ALL'
-      ? consumptions.filter((item) => String(item.consumeTime || '').startsWith(selectedMonth))
-      : consumptions
+  const result = await request.get('/v1/analysis/rfm', { params })
 
-  const groupedByMember = new Map()
-  filteredConsumptions.forEach((item) => {
-    const memberId = item.memberId
-    const group = groupedByMember.get(memberId) || []
-    group.push(item)
-    groupedByMember.set(memberId, group)
-  })
+  const rawSegments = result.data?.segments || []
+  const totalMembers = Number(result.data?.totalMembers || 0)
 
-  const periodEndDate =
-    selectedMonth && selectedMonth !== 'ALL'
-      ? new Date(`${selectedMonth}-31T23:59:59`)
-      : new Date()
-
-  const memberMap = new Map(members.map((item) => [item.id, item]))
-
-  const rows = [...groupedByMember.entries()].map(([memberId, records]) => {
-    const lastConsumeTime = [...records]
-      .map((item) => new Date(item.consumeTime))
-      .sort((a, b) => b - a)[0]
-
-    const monetary = records.reduce((sum, item) => sum + Number(item.amount || 0), 0)
-    const frequency = records.length
-    const recencyDays = Math.max(
-      0,
-      Math.ceil((periodEndDate.getTime() - lastConsumeTime.getTime()) / (1000 * 60 * 60 * 24))
-    )
-    const member = memberMap.get(memberId) || {}
-
-    return {
-      memberId,
-      memberName: member.name || records[0]?.memberName || '未知会员',
-      recencyDays,
-      frequency,
-      monetary: Number(monetary.toFixed(2))
-    }
-  })
-
-  const recencyScoreMap = buildScoreMap(rows.map((item) => item.recencyDays), true)
-  const frequencyScoreMap = buildScoreMap(rows.map((item) => item.frequency))
-  const monetaryScoreMap = buildScoreMap(rows.map((item) => item.monetary))
-
-  const segments = rows.map((item) => {
-    const rLevel = recencyScoreMap.get(item.recencyDays) || 1
-    const fLevel = frequencyScoreMap.get(item.frequency) || 1
-    const mLevel = monetaryScoreMap.get(item.monetary) || 1
-
-    return {
-      ...item,
-      rLevel,
-      fLevel,
-      mLevel,
-      segmentLabel: getSegmentLabel({ rLevel, fLevel, mLevel })
-    }
-  })
+  const segments = rawSegments.map((item) => ({
+    ...item,
+    monetary: Number(item.monetary || 0),
+    frequency: Number(item.frequency || 0),
+    recencyDays: Number(item.recencyDays || 0),
+    rLevel: Number(item.rLevel || 0),
+    fLevel: Number(item.fLevel || 0),
+    mLevel: Number(item.mLevel || 0),
+    segmentLabel: getSegmentLabel(item)
+  }))
 
   const segmentSummaryMap = new Map()
   segments.forEach((item) => {
@@ -203,9 +141,7 @@ export async function getRfmData(selectedMonth = 'ALL') {
     code: 200,
     message: '操作成功',
     data: {
-      totalMembers: segments.length,
-      availableMonths,
-      selectedMonth,
+      totalMembers,
       segments,
       segmentSummary
     }
