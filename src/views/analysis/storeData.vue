@@ -42,7 +42,10 @@
               </el-select>
             </div>
           </template>
-          <div ref="consumptionChartRef" class="chart-view"></div>
+          <div v-if="!consumptionNoData" ref="consumptionChartRef" class="chart-view"></div>
+          <div v-else class="chart-view no-data">
+            <span>暂无数据</span>
+          </div>
         </el-card>
       </el-col>
     </el-row>
@@ -59,7 +62,7 @@
 </template>
 
 <script setup>
-import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
 import { getStoreAnalysisData, getStoreConsumption, getStartDate } from '../../api/analysis'
 import { getStores } from '../../api/system'
@@ -70,6 +73,7 @@ const heatmapChartRef = ref(null)
 const selectedStoreId = ref('')
 const consumptionDate = ref('')
 const availableMonths = ref([])
+const consumptionNoData = ref(false)
 const storeList = ref([])
 
 let barChart
@@ -131,37 +135,6 @@ async function loadData() {
     ]
   })
 
-  if (!consumptionChart) consumptionChart = echarts.init(consumptionChartRef.value)
-  consumptionChart.setOption({
-    tooltip: {
-      trigger: 'axis',
-      axisPointer: { type: 'shadow' },
-      formatter(params) {
-        const item = params[0]
-        return `${item.name}<br/>累计消费：￥${Number(item.value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
-      }
-    },
-    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
-    xAxis: [
-      {
-        type: 'category',
-        data: [],
-        axisTick: { alignWithLabel: true },
-        axisLabel: { interval: 0, rotate: 15 }
-      }
-    ],
-    yAxis: [{ type: 'value', name: '消费金额(元)' }],
-    series: [
-      {
-        name: '累计消费',
-        type: 'bar',
-        barWidth: '50%',
-        data: [],
-        itemStyle: { color: '#2563eb', borderRadius: [6, 6, 0, 0] }
-      }
-    ]
-  })
-
   if (!heatChart) heatChart = echarts.init(heatmapChartRef.value)
   heatChart.setOption({
     tooltip: { trigger: 'axis' },
@@ -190,10 +163,45 @@ async function loadData() {
 
 async function loadConsumptionData() {
   const stores = await getStoreConsumption(consumptionDate.value)
+  if (!stores || stores.length === 0) {
+    consumptionNoData.value = true
+    if (consumptionChart) {
+      consumptionChart.dispose()
+      consumptionChart = null
+    }
+    return
+  }
+  consumptionNoData.value = false
+  await nextTick()
   if (!consumptionChart) consumptionChart = echarts.init(consumptionChartRef.value)
   consumptionChart.setOption({
-    xAxis: { data: stores.map((s) => s.storeName) },
-    series: [{ data: stores.map((s) => Number(s.totalAmount || 0)) }]
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter(params) {
+        const item = params[0]
+        return `${item.name}<br/>累计消费：￥${Number(item.value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+      }
+    },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: [
+      {
+        type: 'category',
+        data: stores.map((s) => s.storeName),
+        axisTick: { alignWithLabel: true },
+        axisLabel: { interval: 0, rotate: 15 }
+      }
+    ],
+    yAxis: [{ type: 'value', name: '消费金额(元)' }],
+    series: [
+      {
+        name: '累计消费',
+        type: 'bar',
+        barWidth: '50%',
+        data: stores.map((s) => Number(s.totalAmount || 0)),
+        itemStyle: { color: '#2563eb', borderRadius: [6, 6, 0, 0] }
+      }
+    ]
   })
 }
 
@@ -259,5 +267,13 @@ onBeforeUnmount(() => {
 
 .chart-view.wide {
   height: 400px;
+}
+
+.no-data {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 14px;
 }
 </style>
