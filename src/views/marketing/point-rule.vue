@@ -44,6 +44,7 @@
         <el-form-item label="规则类型" prop="ruleType">
           <el-select v-model="form.ruleType" style="width: 100%">
             <el-option label="消费积分规则" :value="1" />
+            <el-option label="签到积分规则" :value="2" />
           </el-select>
         </el-form-item>
         <el-form-item label="适用等级">

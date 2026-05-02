@@ -119,13 +119,13 @@
         <el-form-item label="优惠券">
           <span>{{ currentCoupon?.name || '-' }}</span>
         </el-form-item>
-        <el-form-item label="发放方式" prop="issueAll">
-          <el-radio-group v-model="issueForm.issueAll">
-            <el-radio :value="false">指定会员</el-radio>
-            <el-radio :value="true">全部启用会员</el-radio>
+        <el-form-item label="发放类型" prop="type">
+          <el-radio-group v-model="issueForm.type">
+            <el-radio :value="1">指定会员</el-radio>
+            <el-radio :value="2">指定等级</el-radio>
           </el-radio-group>
         </el-form-item>
-        <el-form-item v-if="!issueForm.issueAll" label="指定会员" prop="memberIds">
+        <el-form-item v-if="issueForm.type === 1" label="指定会员" prop="memberIds">
           <el-select
             v-model="issueForm.memberIds"
             multiple
@@ -137,6 +137,22 @@
               v-for="item in memberOptions"
               :key="item.id"
               :label="`${item.name} / ${item.phone}`"
+              :value="item.id"
+            />
+          </el-select>
+        </el-form-item>
+        <el-form-item v-if="issueForm.type === 2" label="指定等级" prop="levelIds">
+          <el-select
+            v-model="issueForm.levelIds"
+            multiple
+            filterable
+            placeholder="请选择会员等级"
+            style="width: 100%"
+          >
+            <el-option
+              v-for="item in levelOptions"
+              :key="item.id"
+              :label="item.name"
               :value="item.id"
             />
           </el-select>
@@ -153,7 +169,7 @@
 <script setup>
 import { onMounted, reactive, ref } from 'vue'
 import { ElMessage, ElMessageBox } from 'element-plus'
-import { getMembers } from '../../api/member'
+import { getMembers, getLevels } from '../../api/member'
 import {
   createCoupon,
   deleteCoupon,
@@ -173,6 +189,7 @@ const formRef = ref()
 const issueFormRef = ref()
 const currentCoupon = ref(null)
 const memberOptions = ref([])
+const levelOptions = ref([])
 
 const query = reactive({
   pageNum: 1,
@@ -194,8 +211,9 @@ const form = reactive({
 })
 
 const issueForm = reactive({
-  issueAll: false,
-  memberIds: []
+  type: 1,
+  memberIds: [],
+  levelIds: []
 })
 
 const rules = {
@@ -208,14 +226,27 @@ const rules = {
 }
 
 const issueRules = {
+  type: [{ required: true, message: '请选择发放类型', trigger: 'change' }],
   memberIds: [
     {
       validator: (_, value, callback) => {
-        if (issueForm.issueAll || (value && value.length)) {
+        if (issueForm.type !== 1 || (value && value.length)) {
           callback()
           return
         }
         callback(new Error('请选择要发放的会员'))
+      },
+      trigger: 'change'
+    }
+  ],
+  levelIds: [
+    {
+      validator: (_, value, callback) => {
+        if (issueForm.type !== 2 || (value && value.length)) {
+          callback()
+          return
+        }
+        callback(new Error('请选择要发放的会员等级'))
       },
       trigger: 'change'
     }
@@ -227,6 +258,11 @@ const couponTypeText = (type) => (Number(type) === 1 ? '满减券' : '折扣券'
 async function loadMembers() {
   const result = await getMembers({ pageNum: 1, pageSize: 200 })
   memberOptions.value = result.data?.records || []
+}
+
+async function loadLevels() {
+  const result = await getLevels()
+  levelOptions.value = result.data || []
 }
 
 async function loadData() {
@@ -271,8 +307,9 @@ function openEdit(row) {
 
 function openIssue(row) {
   currentCoupon.value = row
-  issueForm.issueAll = false
+  issueForm.type = 1
   issueForm.memberIds = []
+  issueForm.levelIds = []
   issueDialogVisible.value = true
 }
 
@@ -325,8 +362,9 @@ function submitIssue() {
   issueFormRef.value.validate(async (valid) => {
     if (!valid || !currentCoupon.value) return
     await issueCoupon(currentCoupon.value.id, {
-      issueAll: issueForm.issueAll,
-      memberIds: issueForm.issueAll ? undefined : issueForm.memberIds
+      type: issueForm.type,
+      memberIds: issueForm.type === 1 ? issueForm.memberIds : undefined,
+      levelIds: issueForm.type === 2 ? issueForm.levelIds : undefined
     })
     ElMessage.success('发放成功')
     issueDialogVisible.value = false
@@ -335,7 +373,7 @@ function submitIssue() {
 }
 
 onMounted(async () => {
-  await Promise.all([loadData(), loadMembers()])
+  await Promise.all([loadData(), loadMembers(), loadLevels()])
 })
 </script>
 

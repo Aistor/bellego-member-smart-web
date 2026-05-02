@@ -91,9 +91,6 @@
             />
           </el-select>
         </el-form-item>
-        <el-form-item label="会员卡号" prop="cardNumber">
-          <el-input v-model="form.cardNumber" />
-        </el-form-item>
         <el-form-item label="会员姓名" prop="name">
           <el-input v-model="form.name" />
         </el-form-item>
@@ -169,11 +166,10 @@ const form = reactive({
 })
 
 const rules = {
-  cardNumber: [{ required: true, message: '请输入会员卡号', trigger: 'blur' }],
   name: [{ required: true, message: '请输入会员姓名', trigger: 'blur' }],
   phone: [
     { required: true, message: '请输入手机号', trigger: 'blur' },
-    { pattern: /^1\\d{10}$/, message: '请输入正确的手机号', trigger: 'blur' }
+    { pattern: /^1[3-9]\d{9}$/, message: '请输入正确的手机号', trigger: 'blur' }
   ],
   gender: [{ required: true, message: '请选择性别', trigger: 'change' }],
   status: [{ required: true, message: '请选择状态', trigger: 'change' }]

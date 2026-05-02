@@ -82,9 +82,9 @@ function getSegmentLabel(item) {
   const m = Number(item.mLevel || 0)
 
   if (r >= 4 && f >= 4 && m >= 4) return '重要价值客户'
-  if (r <= 2 && f >= 4) return '重要保持客户'
-  if (r >= 4 && (f >= 2 || m >= 3)) return '重要发展客户'
-  if (r <= 2 && (f <= 2 || m <= 2)) return '重要挽留客户'
+  if (r >= 4 && f <= 2 && m >= 4) return '重要发展客户'
+  if (r >= 2 && f >= 4 && m <= 2) return '重要保持客户'
+  if (r <= 2 && f >= 4 && m >= 4) return '重要挽留客户'
   return '一般价值客户'
 }
 

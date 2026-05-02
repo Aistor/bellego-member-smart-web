@@ -135,7 +135,7 @@
             </div>
           </template>
 
-          <el-table :data="tableRows" border stripe height="360">
+          <el-table :data="tableRows" border stripe height="340">
             <el-table-column prop="memberName" label="会员" min-width="120" />
             <el-table-column prop="segmentLabel" label="客群" min-width="140" />
             <el-table-column prop="recencyDays" label="最近消费(天)" width="110" />
@@ -201,7 +201,7 @@ const tableRows = computed(() =>
 )
 
 function segmentColor(label) {
-  if (label.includes('价值')) return '#0f766e'
+  if (label.includes('重要价值')) return '#0f766e'
   if (label.includes('保持')) return '#d97706'
   if (label.includes('发展')) return '#2563eb'
   if (label.includes('挽留')) return '#dc2626'
@@ -349,13 +349,13 @@ onBeforeUnmount(() => {
 
 <style scoped>
 .rfm-page {
-  padding: 10px;
+  padding: 16px 20px;
 }
 
 .toolbar-row,
 .overview-row,
 .content-row {
-  margin-bottom: 18px;
+  margin-bottom: 16px;
 }
 
 .toolbar {
@@ -366,42 +366,54 @@ onBeforeUnmount(() => {
 }
 
 .toolbar-title {
-  font-size: 18px;
+  font-size: 17px;
   font-weight: 700;
   color: #0f172a;
+  letter-spacing: -0.3px;
 }
 
 .toolbar-subtitle {
-  margin-top: 4px;
+  margin-top: 3px;
   color: #64748b;
-  font-size: 13px;
+  font-size: 12.5px;
 }
 
+/* ---------- 概览卡片 ---------- */
 .overview-card {
-  min-height: 132px;
+  min-height: 120px;
   background:
-    radial-gradient(circle at top right, rgba(14, 165, 233, 0.14), transparent 36%),
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.10), transparent 40%),
     linear-gradient(180deg, #ffffff 0%, #f8fbff 100%);
+}
+
+.overview-card :deep(.el-card__body) {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  height: 100%;
 }
 
 .overview-label {
   color: #64748b;
-  font-size: 13px;
+  font-size: 12.5px;
+  font-weight: 500;
 }
 
 .overview-value {
-  margin: 14px 0 10px;
-  font-size: 32px;
-  line-height: 1;
+  margin: 10px 0 6px;
+  font-size: 26px;
+  line-height: 1.1;
   font-weight: 700;
   color: #0f172a;
+  letter-spacing: -0.5px;
 }
 
 .overview-note {
-  font-size: 12px;
+  font-size: 11.5px;
   color: #94a3b8;
 }
 
+/* ---------- 面板头部 ---------- */
 .panel-header {
   display: flex;
   align-items: center;
@@ -414,64 +426,83 @@ onBeforeUnmount(() => {
   font-size: 12px;
 }
 
-.segment-card {
-  min-height: 100%;
+/* ---------- 客群细分 ---------- */
+.segment-card :deep(.el-card__body) {
+  min-height: 415px;
+  overflow-y: auto;
+  padding: 12px;
+  scrollbar-width: none; /* Firefox */
+}
+
+.segment-card :deep(.el-card__body)::-webkit-scrollbar {
+  display: none; /* Chrome / Edge / Safari */
 }
 
 .segment-item {
-  padding: 14px 14px 12px;
-  border: 1px solid rgba(148, 163, 184, 0.18);
-  border-radius: 16px;
-  margin-bottom: 12px;
+  padding: 12px 14px 10px;
+  border: 1px solid rgba(148, 163, 184, 0.15);
+  border-radius: 10px;
+  margin-bottom: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
   background: #fff;
 }
 
+.segment-item:last-child {
+  margin-bottom: 0;
+}
+
 .segment-item:hover,
 .segment-item.active {
   transform: translateY(-1px);
-  border-color: rgba(37, 99, 235, 0.26);
-  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.06);
+  border-color: rgba(37, 99, 235, 0.22);
+  box-shadow: 0 6px 16px rgba(15, 23, 42, 0.05);
+}
+
+.segment-item.active {
+  background: #f0f6ff;
 }
 
 .segment-top {
   display: flex;
   justify-content: space-between;
   align-items: center;
-  margin-bottom: 10px;
+  margin-bottom: 8px;
 }
 
 .segment-name {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 7px;
   font-weight: 600;
+  font-size: 13.5px;
   color: #0f172a;
 }
 
 .segment-dot {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
   border-radius: 50%;
+  flex-shrink: 0;
 }
 
 .segment-count {
-  font-weight: 700;
-  color: #1e293b;
+  font-weight: 600;
+  font-size: 13px;
+  color: #334155;
 }
 
 .segment-metrics {
   display: flex;
   flex-wrap: wrap;
-  gap: 10px;
+  gap: 8px 12px;
   color: #64748b;
-  font-size: 12px;
-  margin-bottom: 10px;
+  font-size: 11.5px;
+  margin-bottom: 8px;
 }
 
 .segment-progress {
-  height: 7px;
+  height: 5px;
   border-radius: 999px;
   background: #e2e8f0;
   overflow: hidden;
@@ -480,18 +511,39 @@ onBeforeUnmount(() => {
 .segment-progress-bar {
   height: 100%;
   border-radius: inherit;
+  transition: width 0.35s ease;
 }
 
-.chart-card {
-  min-height: 100%;
+/* ---------- 散点图卡片 ---------- */
+.chart-card :deep(.el-card__body) {
+  padding: 8px 12px 12px;
 }
 
 .chart-view {
   width: 100%;
-  height: 420px;
+  height: 396px;
 }
 
 .chart-view.small {
-  height: 360px;
+  height: 340px;
+}
+
+/* ---------- 第二行等高 ---------- */
+.content-row:last-child {
+  display: flex;
+}
+
+.content-row:last-child .el-col {
+  display: flex;
+}
+
+.content-row:last-child .el-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-row:last-child .el-card :deep(.el-card__body) {
+  flex: 1;
 }
 </style>

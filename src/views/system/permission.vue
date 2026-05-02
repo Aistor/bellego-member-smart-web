@@ -14,6 +14,7 @@
       border
       default-expand-all
       :tree-props="{ children: 'children' }"
+      max-height="70vh"
     >
       <el-table-column prop="name" label="权限名称" min-width="200" />
       <el-table-column prop="code" label="权限编码" min-width="200" />
