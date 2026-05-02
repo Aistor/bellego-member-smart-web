@@ -19,7 +19,7 @@
       </el-form-item>
     </el-form>
 
-    <el-table v-loading="loading" :data="tableData" border>
+    <el-table v-loading="loading" :data="tableData" max-height="60vh" border>
       <el-table-column prop="operatorName" label="操作人" width="140" />
       <el-table-column prop="module" label="模块" width="140" />
       <el-table-column prop="operation" label="操作名称" min-width="150" />

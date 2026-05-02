@@ -144,6 +144,12 @@ async function handleCommand(command) {
 }
 
 .layout-aside {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: 240px;
+  height: 100vh;
+  z-index: 10;
   background: linear-gradient(180deg, #17324d 0%, #102539 100%);
   color: #fff;
   border-right: 1px solid rgba(255, 255, 255, 0.08);
@@ -233,5 +239,9 @@ async function handleCommand(command) {
 
 .layout-main {
   padding: 24px;
+}
+
+.layout-shell > .el-container {
+  margin-left: 240px;
 }
 </style>

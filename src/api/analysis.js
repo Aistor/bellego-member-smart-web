@@ -77,11 +77,14 @@ function getSegmentLabel(item) {
   const f = Number(item.fLevel || 0)
   const m = Number(item.mLevel || 0)
 
-  if (r >= 4 && f >= 4 && m >= 4) return '重要价值客户'
-  if (r >= 4 && f <= 2 && m >= 4) return '重要发展客户'
-  if (r >= 2 && f >= 4 && m <= 2) return '重要保持客户'
-  if (r <= 2 && f >= 4 && m >= 4) return '重要挽留客户'
-  return '一般价值客户'
+  if (r >= 3 && f >= 3 && m >= 3) return '重要价值客户'
+  if (r >= 3 && f <  3 && m >= 3) return '重要发展客户'
+  if (r >= 3 && f >= 3 && m <  3) return '重要保持客户'
+  if (r <  3 && f >= 3 && m >= 3) return '重要挽留客户'
+  if (r >= 3 && f <  3 && m <  3) return '潜力会员'
+  if (r <  3 && f >= 3 && m <  3) return '一般保持会员'
+  if (r <  3 && f <  3 && m >= 3) return '流失高价值会员'
+  if (r <  3 && f <  3 && m <  3) return '流失会员'
 }
 
 export async function getRfmStartDate() {
@@ -235,8 +238,8 @@ export async function getDashboardSummary() {
       consumptionsResult
     ] = await Promise.all([
       request.get('/v1/members', { params: { pageNum: 1, pageSize: 200 } }),
-      request.get('/v1/analysis/behavior/daily-consume'),
-      request.get('/v1/analysis/behavior/level-count'),
+      request.get('/v1/analysis/daily-consume'),
+      request.get('/v1/analysis/level-count'),
       request.get('/v1/member-coupons', { params: { pageNum: 1, pageSize: 200 } }),
       request.get('/v1/consumptions', { params: { pageNum: 1, pageSize: 200 } })
     ])

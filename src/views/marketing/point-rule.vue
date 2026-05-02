@@ -9,9 +9,6 @@
 
     <el-table v-loading="loading" :data="tableData" border show-overflow-tooltip stripe>
       <el-table-column prop="ruleName" label="规则名称" min-width="160" />
-      <el-table-column label="规则类型" width="120">
-        <template #default="{ row }">{{ Number(row.ruleType) === 1 ? '消费积分规则' : '签到积分规则' }}</template>
-      </el-table-column>
       <el-table-column label="适用等级" width="140">
         <template #default="{ row }">{{ levelName(row.applicableLevelId) }}</template>
       </el-table-column>
@@ -40,12 +37,6 @@
       <el-form ref="formRef" :model="form" :rules="rules" label-width="120px">
         <el-form-item label="规则名称" prop="ruleName">
           <el-input v-model="form.ruleName" />
-        </el-form-item>
-        <el-form-item label="规则类型" prop="ruleType">
-          <el-select v-model="form.ruleType" style="width: 100%">
-            <el-option label="消费积分规则" :value="1" />
-            <el-option label="签到积分规则" :value="2" />
-          </el-select>
         </el-form-item>
         <el-form-item label="适用等级">
           <el-select v-model="form.applicableLevelId" clearable placeholder="为空表示通用" style="width: 100%">
@@ -113,7 +104,6 @@ const form = reactive({
 
 const rules = {
   ruleName: [{ required: true, message: '请输入规则名称', trigger: 'blur' }],
-  ruleType: [{ required: true, message: '请选择规则类型', trigger: 'change' }],
   pointsPerUnit: [{ required: true, message: '请输入每单位积分', trigger: 'blur' }]
 }
 

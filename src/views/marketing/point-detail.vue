@@ -1,13 +1,5 @@
 <template>
   <el-card shadow="never">
-    <template #header>
-      <div class="page-header">
-        <span>积分明细</span>
-        <el-upload :show-file-list="false" :auto-upload="false" :on-change="handleImport">
-          <el-button type="primary">导入 CSV</el-button>
-        </el-upload>
-      </div>
-    </template>
 
     <el-form :inline="true" :model="query" class="search-form">
       <el-form-item label="会员">
@@ -31,7 +23,7 @@
       </el-form-item>
     </el-form>
 
-    <el-table v-loading="loading" :data="tableData" border show-overflow-tooltip stripe>
+    <el-table v-loading="loading" :data="tableData" max-height="70vh" border show-overflow-tooltip stripe>
       <el-table-column prop="id" label="明细ID" width="120" />
       <el-table-column label="会员名称" min-width="80">
         <template #default="{ row }">{{ memberName(row.memberId) }}</template>

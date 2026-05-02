@@ -225,14 +225,18 @@ const tableRows = computed(() =>
 
 function segmentColor(label) {
   if (label.includes('重要价值')) return '#0f766e'
-  if (label.includes('保持')) return '#d97706'
-  if (label.includes('发展')) return '#2563eb'
-  if (label.includes('挽留')) return '#dc2626'
+  if (label.includes('重要发展')) return '#2563eb'
+  if (label.includes('重要保持')) return '#d97706'
+  if (label.includes('重要挽留')) return '#dc2626'
+  if (label.includes('潜力')) return '#7c3aed'
+  if (label.includes('一般保持')) return '#0891b2'
+  if (label.includes('流失高价值')) return '#ea580c'
+  if (label.includes('流失')) return '#94a3b8'
   return '#64748b'
 }
 
 function shortSegmentLabel(label) {
-  return label.replace('客户', '')
+  return label.replace('客户', '').replace('会员', '')
 }
 
 function renderScatterChart() {
@@ -451,8 +455,14 @@ onBeforeUnmount(() => {
 }
 
 /* ---------- 客群细分 ---------- */
+.segment-card {
+  overflow: hidden;
+  max-height: 480px;
+}
+
 .segment-card :deep(.el-card__body) {
-  min-height: 415px;
+  flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 12px;
   scrollbar-width: none; /* Firefox */
@@ -463,10 +473,10 @@ onBeforeUnmount(() => {
 }
 
 .segment-item {
-  padding: 12px 14px 10px;
+  padding: 14px 16px 12px;
   border: 1px solid rgba(148, 163, 184, 0.15);
   border-radius: 10px;
-  margin-bottom: 8px;
+  margin-bottom: 10px;
   cursor: pointer;
   transition: all 0.2s ease;
   background: #fff;
@@ -499,30 +509,30 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 7px;
   font-weight: 600;
-  font-size: 13.5px;
+  font-size: 14px;
   color: #0f172a;
 }
 
 .segment-dot {
-  width: 8px;
-  height: 8px;
+  width: 9px;
+  height: 9px;
   border-radius: 50%;
   flex-shrink: 0;
 }
 
 .segment-count {
   font-weight: 600;
-  font-size: 13px;
+  font-size: 13.5px;
   color: #334155;
 }
 
 .segment-metrics {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px 12px;
+  gap: 8px 14px;
   color: #64748b;
-  font-size: 11.5px;
-  margin-bottom: 8px;
+  font-size: 12px;
+  margin-bottom: 9px;
 }
 
 .segment-progress {
@@ -550,6 +560,25 @@ onBeforeUnmount(() => {
 
 .chart-view.small {
   height: 340px;
+}
+
+/* ---------- 第一行等高（客群细分 + 散点图） ---------- */
+.content-row:first-of-type {
+  display: flex;
+}
+
+.content-row:first-of-type .el-col {
+  display: flex;
+}
+
+.content-row:first-of-type .el-card {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+.content-row:first-of-type .chart-card :deep(.el-card__body) {
+  flex: 1;
 }
 
 /* ---------- 第二行等高 ---------- */
