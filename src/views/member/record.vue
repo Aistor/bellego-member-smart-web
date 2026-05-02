@@ -34,7 +34,7 @@
       </el-form-item>
     </el-form>
 
-    <el-table v-loading="loading" :data="tableData" border stripe show-overflow-tooltip>
+    <el-table v-loading="loading" :data="tableData" max-height="60vh" border stripe show-overflow-tooltip>
       <el-table-column prop="id" label="记录ID" width="140" />
       <el-table-column prop="memberName" label="会员姓名" min-width="80" />
       <el-table-column prop="storeName" label="门店" min-width="150" />

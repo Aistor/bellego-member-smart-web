@@ -105,12 +105,6 @@
               <strong>{{ lostRate }}%</strong>。
             </div>
           </div>
-          <div class="insight-item">
-            <div class="insight-title">口径说明</div>
-            <div class="insight-desc">
-              生命周期卡片和分布图均使用后端返回的生命周期快照；切换月份后，页面会按该月份月底重新获取状态统计。
-            </div>
-          </div>
         </el-card>
       </el-col>
 

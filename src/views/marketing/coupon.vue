@@ -23,7 +23,7 @@
       </el-form-item>
     </el-form>
 
-    <el-table v-loading="loading" :data="tableData" border>
+    <el-table v-loading="loading" :data="tableData" max-height="60vh" border>
       <el-table-column prop="name" label="优惠券名称" min-width="160" />
       <el-table-column prop="type" label="类型" width="100">
         <template #default="{ row }">{{ couponTypeText(row.type) }}</template>

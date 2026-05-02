@@ -32,46 +32,6 @@ function toPageList(payload) {
   return payload?.records || []
 }
 
-async function getAllPagedRecords(path, params = {}) {
-  const pageSize = 200
-  let pageNum = 1
-  let total = Infinity
-  const records = []
-
-  while (records.length < total) {
-    const result = await request.get(path, {
-      params: {
-        ...params,
-        pageNum,
-        pageSize
-      }
-    })
-
-    const pageData = result.data || {}
-    const pageRecords = pageData.records || []
-    total = Number(pageData.total || pageRecords.length || 0)
-    records.push(...pageRecords)
-
-    if (!pageRecords.length || pageRecords.length < pageSize) {
-      break
-    }
-
-    pageNum += 1
-  }
-
-  return records
-}
-
-function buildLifecycleTrendSeries(trendMap, categories) {
-  return categories.map((date) => {
-    const rawValue = trendMap?.[date]
-    if (rawValue === undefined || rawValue === null || rawValue === '') {
-      return null
-    }
-    return Number(rawValue || 0)
-  })
-}
-
 function getSegmentLabel(item) {
   const r = Number(item.rLevel || 0)
   const f = Number(item.fLevel || 0)
@@ -198,10 +158,13 @@ export async function getMemberGrowth(date) {
   }
 }
 
-export async function getBehaviorData() {
+export async function getStoreAnalysisData(storeId = '') {
+  const params = {}
+  if (storeId) params.storeId = storeId
+
   const [orderAmountResult, timeDistributionResult] = await Promise.all([
-    request.get('/v1/analysis/behavior/order-amount'),
-    request.get('/v1/analysis/behavior/time-distribution')
+    request.get('/v1/analysis/order-amount', { params }),
+    request.get('/v1/analysis/time-distribution', { params })
   ])
 
   const bucketMap = orderAmountResult.data?.buckets || {}

@@ -29,7 +29,7 @@
       </el-form-item>
     </el-form>
 
-    <el-table v-loading="loading" :data="tableData" border show-overflow-tooltip stripe>
+    <el-table v-loading="loading" :data="tableData" max-height="60vh" border show-overflow-tooltip stripe>
       <el-table-column prop="id" label="记录ID" width="140" />
       <el-table-column prop="memberName" label="会员名称" min-width="100" />
       <el-table-column prop="couponName" label="优惠券" min-width="160" />

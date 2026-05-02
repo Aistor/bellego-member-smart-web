@@ -51,7 +51,7 @@
             </template>
             <el-menu-item index="/analysis/rfm">RFM 分析</el-menu-item>
             <el-menu-item index="/analysis/lifecycle">生命周期分析</el-menu-item>
-            <el-menu-item index="/analysis/behavior">消费行为分析</el-menu-item>
+            <el-menu-item index="/analysis/storeData">门店数据分析</el-menu-item>
           </el-sub-menu>
 
           <el-sub-menu index="/system">

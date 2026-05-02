@@ -1,54 +1,80 @@
 <template>
-  <div>
-    <el-row :gutter="20">
+  <div class="store-data-page">
+    <el-card shadow="never" class="filter-card">
+      <div class="filter-bar">
+        <span class="filter-label">门店分析</span>
+        <el-select v-model="selectedStoreId" placeholder="全部门店" clearable style="width: 200px" @change="loadData">
+          <el-option
+            v-for="store in storeList"
+            :key="store.id"
+            :label="store.name"
+            :value="store.id"
+          />
+        </el-select>
+      </div>
+    </el-card>
+
+    <el-row :gutter="18" class="chart-row">
       <el-col :span="12">
-        <el-card>
+        <el-card shadow="never">
           <template #header>
             <div class="card-header">
               <span>会员客单价分布</span>
             </div>
           </template>
-          <div ref="barChartRef" style="width: 100%; height: 350px;"></div>
+          <div ref="barChartRef" class="chart-view"></div>
         </el-card>
       </el-col>
 
       <el-col :span="12">
-        <el-card>
+        <el-card shadow="never">
           <template #header>
             <div class="card-header">
               <span>消费偏好雷达图</span>
             </div>
           </template>
-          <div ref="radarChartRef" style="width: 100%; height: 350px;"></div>
+          <div ref="radarChartRef" class="chart-view"></div>
         </el-card>
       </el-col>
     </el-row>
 
-    <el-card style="margin-top: 20px;">
+    <el-card shadow="never" class="chart-row">
       <template #header>
         <div class="card-header">
           <span>高频消费时段分布</span>
         </div>
       </template>
-      <div ref="heatmapChartRef" style="width: 100%; height: 400px;"></div>
+      <div ref="heatmapChartRef" class="chart-view wide"></div>
     </el-card>
   </div>
 </template>
 
 <script setup>
-import { onMounted, ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
-import { getBehaviorData } from '../../api/analysis'
+import { getStoreAnalysisData } from '../../api/analysis'
+import { getStores } from '../../api/system'
 
 const barChartRef = ref(null)
 const radarChartRef = ref(null)
 const heatmapChartRef = ref(null)
+const selectedStoreId = ref('')
+const storeList = ref([])
 
-onMounted(async () => {
-  const result = await getBehaviorData()
+let barChart
+let radarChart
+let heatChart
+
+async function fetchStores() {
+  const result = await getStores({ pageSize: 200 })
+  storeList.value = result.data?.records || []
+}
+
+async function loadData() {
+  const result = await getStoreAnalysisData(selectedStoreId.value)
   const chartData = result.data
 
-  const barChart = echarts.init(barChartRef.value)
+  if (!barChart) barChart = echarts.init(barChartRef.value)
   barChart.setOption({
     tooltip: { trigger: 'axis', axisPointer: { type: 'shadow' } },
     grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
@@ -71,7 +97,7 @@ onMounted(async () => {
     ]
   })
 
-  const radarChart = echarts.init(radarChartRef.value)
+  if (!radarChart) radarChart = echarts.init(radarChartRef.value)
   radarChart.setOption({
     tooltip: {},
     legend: { data: ['男性会员群', '女性会员群'], bottom: 0 },
@@ -105,7 +131,7 @@ onMounted(async () => {
     ]
   })
 
-  const heatChart = echarts.init(heatmapChartRef.value)
+  if (!heatChart) heatChart = echarts.init(heatmapChartRef.value)
   heatChart.setOption({
     tooltip: { trigger: 'axis' },
     xAxis: {
@@ -129,11 +155,60 @@ onMounted(async () => {
       }
     ]
   })
+}
 
-  window.addEventListener('resize', () => {
-    barChart.resize()
-    radarChart.resize()
-    heatChart.resize()
-  })
+function handleResize() {
+  barChart?.resize()
+  radarChart?.resize()
+  heatChart?.resize()
+}
+
+onMounted(async () => {
+  await fetchStores()
+  await loadData()
+  window.addEventListener('resize', handleResize)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('resize', handleResize)
+  barChart?.dispose()
+  radarChart?.dispose()
+  heatChart?.dispose()
 })
 </script>
+
+<style scoped>
+.store-data-page {
+  padding: 0;
+}
+
+.filter-card {
+  margin-bottom: 16px;
+}
+
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.filter-label {
+  font-weight: 700;
+  font-size: 18px;
+  color: #0f172a;
+}
+
+.chart-row {
+  margin-bottom: 16px;
+}
+
+.chart-view {
+  width: 100%;
+  height: 350px;
+}
+
+.chart-view.wide {
+  height: 400px;
+}
+</style>

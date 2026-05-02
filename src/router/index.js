@@ -67,10 +67,10 @@ const routes = [
         meta: { title: '生命周期分析', group: 'analysis', icon: 'TrendCharts' }
       },
       {
-        path: 'analysis/behavior',
+        path: 'analysis/storeData',
         name: 'AnalysisBehavior',
-        component: () => import('../views/analysis/behavior.vue'),
-        meta: { title: '消费行为分析', group: 'analysis', icon: 'DataLine' }
+        component: () => import('../views/analysis/storeData.vue'),
+        meta: { title: '门店数据分析', group: 'analysis', icon: 'DataLine' }
       },
       {
         path: 'system/store',

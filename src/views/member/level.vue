@@ -7,7 +7,7 @@
       </div>
     </template>
 
-    <el-table v-loading="loading" :data="tableData" border>
+    <el-table v-loading="loading" :data="tableData" max-height="60vh" border>
       <el-table-column prop="name" label="等级名称" min-width="140" />
       <el-table-column prop="level" label="等级值" width="100" />
       <el-table-column prop="minPoints" label="最低积分" width="120" />

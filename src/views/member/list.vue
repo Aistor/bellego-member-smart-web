@@ -33,7 +33,7 @@
       </el-form-item>
     </el-form>
 
-    <el-table v-loading="loading" :data="tableData" border>
+    <el-table v-loading="loading" :data="tableData" max-height="60vh" border>
       <el-table-column prop="cardNumber" label="会员卡号" min-width="150" />
       <el-table-column prop="name" label="会员姓名" width="120" />
       <el-table-column prop="phone" label="手机号" width="130" />
