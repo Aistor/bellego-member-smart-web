@@ -136,7 +136,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
-import { getMemberCategory, getMemberGrowth } from '../../api/analysis'
+import { getMemberCategory, getMemberGrowth, getRfmStartDate } from '../../api/analysis'
 
 const selectedMonth = ref('ALL')
 const availableMonths = ref([])
@@ -161,6 +161,29 @@ const distributionChartRef = ref(null)
 
 let trendChart
 let distributionChart
+
+function generateMonthList(startDate) {
+  if (!startDate) return []
+  const [startYear, startMonth] = startDate.split('-').map(Number)
+  const now = new Date()
+  const endYear = now.getFullYear()
+  const endMonth = now.getMonth() + 1
+
+  const months = []
+  let year = startYear
+  let month = startMonth
+
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    months.push(`${year}-${String(month).padStart(2, '0')}`)
+    month++
+    if (month > 12) {
+      month = 1
+      year++
+    }
+  }
+
+  return months.reverse()
+}
 
 const snapshotLabel = computed(() =>
   selectedMonth.value === 'ALL' ? '当前' : `${lifecycle.value.month || selectedMonth.value} `
@@ -278,25 +301,6 @@ async function loadData() {
     }
   }
 
-  // 只在首次加载时提取可用月份
-  if (availableMonths.value.length === 0 && growthData.growthData && growthData.growthData.length > 0) {
-    const months = new Set()
-    growthData.growthData.forEach(item => {
-      if (item.month) {
-        months.add(item.month)
-      } else if (item.date) {
-        // 从日期中提取月份 (YYYY-MM-DD -> YYYY-MM)
-        const month = item.date.substring(0, 7)
-        months.add(month)
-      }
-    })
-    
-    // 转换为数组并排序
-    if (months.size > 0) {
-      availableMonths.value = Array.from(months).sort().reverse()
-    }
-  }
-
   await nextTick()
   renderCharts()
 }
@@ -311,6 +315,8 @@ watch(selectedMonth, async () => {
 })
 
 onMounted(async () => {
+  const startDate = await getRfmStartDate()
+  availableMonths.value = generateMonthList(startDate)
   await loadData()
   window.addEventListener('resize', handleResize)
 })

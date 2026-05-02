@@ -32,19 +32,19 @@ function toPageList(payload) {
   return payload?.records || []
 }
 
-function getSegmentLabel(item) {
+function getSegmentLabel(item, avgR, avgF, avgM) {
   const r = Number(item.rLevel || 0)
   const f = Number(item.fLevel || 0)
   const m = Number(item.mLevel || 0)
 
-  if (r >= 3 && f >= 3 && m >= 3) return '重要价值客户'
-  if (r >= 3 && f <  3 && m >= 3) return '重要发展客户'
-  if (r >= 3 && f >= 3 && m <  3) return '重要保持客户'
-  if (r <  3 && f >= 3 && m >= 3) return '重要挽留客户'
-  if (r >= 3 && f <  3 && m <  3) return '潜力会员'
-  if (r <  3 && f >= 3 && m <  3) return '一般保持会员'
-  if (r <  3 && f <  3 && m >= 3) return '流失高价值会员'
-  if (r <  3 && f <  3 && m <  3) return '流失会员'
+  if (r >= avgR && f >= avgF && m >= avgM) return '重要价值客户'
+  if (r >= avgR && f <  avgF && m >= avgM) return '重要发展客户'
+  if (r >= avgR && f >= avgF && m <  avgM) return '重要保持客户'
+  if (r <  avgR && f >= avgF && m >= avgM) return '重要挽留客户'
+  if (r >= avgR && f <  avgF && m <  avgM) return '潜力会员'
+  if (r <  avgR && f >= avgF && m <  avgM) return '一般保持会员'
+  if (r <  avgR && f <  avgF && m >= avgM) return '流失高价值会员'
+  if (r <  avgR && f <  avgF && m <  avgM) return '流失会员'
 }
 
 export async function getRfmStartDate() {
@@ -63,6 +63,13 @@ export async function getRfmData(selectedMonth = 'ALL') {
   const rawSegments = result.data?.segments || []
   const totalMembers = Number(result.data?.totalMembers || 0)
 
+  const totalR = rawSegments.reduce((sum, item) => sum + Number(item.rLevel || 0), 0)
+  const totalF = rawSegments.reduce((sum, item) => sum + Number(item.fLevel || 0), 0)
+  const totalM = rawSegments.reduce((sum, item) => sum + Number(item.mLevel || 0), 0)
+  const avgR = totalR / rawSegments.length
+  const avgF = totalF / rawSegments.length
+  const avgM = totalM / rawSegments.length
+
   const segments = rawSegments.map((item) => ({
     ...item,
     monetary: Number(item.monetary || 0),
@@ -71,7 +78,7 @@ export async function getRfmData(selectedMonth = 'ALL') {
     rLevel: Number(item.rLevel || 0),
     fLevel: Number(item.fLevel || 0),
     mLevel: Number(item.mLevel || 0),
-    segmentLabel: getSegmentLabel(item)
+    segmentLabel: getSegmentLabel(item, avgR, avgF, avgM)
   }))
 
   const segmentSummaryMap = new Map()
