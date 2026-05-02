@@ -158,7 +158,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
-import { getRfmData, getRfmStartDate } from '../../api/analysis'
+import { getRfmData, getStartDate } from '../../api/analysis'
 
 const scatterChartRef = ref(null)
 const barChartRef = ref(null)
@@ -362,7 +362,7 @@ watch(activeSegment, () => {
 })
 
 onMounted(async () => {
-  const startDate = await getRfmStartDate()
+  const startDate = await getStartDate()
   availableMonths.value = generateMonthList(startDate)
   await loadData()
   window.addEventListener('resize', handleResize)

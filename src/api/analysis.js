@@ -47,7 +47,7 @@ function getSegmentLabel(item, avgR, avgF, avgM) {
   if (r <  avgR && f <  avgF && m <  avgM) return '流失会员'
 }
 
-export async function getRfmStartDate() {
+export async function getStartDate() {
   const result = await request.get('/v1/analysis/start-date')
   return result.data || ''
 }
@@ -163,6 +163,13 @@ export async function getMemberGrowth(date) {
       growthData
     }
   }
+}
+
+export async function getStoreConsumption(date = '') {
+  const result = await request.get('/v1/analysis/store-consumption', {
+    params: { date }
+  })
+  return result.data?.stores || []
 }
 
 export async function getStoreAnalysisData(storeId = '') {

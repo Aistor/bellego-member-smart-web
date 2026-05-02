@@ -30,10 +30,19 @@
         <el-card shadow="never">
           <template #header>
             <div class="card-header">
-              <span>消费偏好雷达图</span>
+              <span>门店消费</span>
+              <el-select v-model="consumptionDate" placeholder="全部时期" clearable style="width: 160px" size="small" @change="loadConsumptionData">
+                <el-option label="全部时期" value="" />
+                <el-option
+                  v-for="month in availableMonths"
+                  :key="month"
+                  :label="month"
+                  :value="month"
+                />
+              </el-select>
             </div>
           </template>
-          <div ref="radarChartRef" class="chart-view"></div>
+          <div ref="consumptionChartRef" class="chart-view"></div>
         </el-card>
       </el-col>
     </el-row>
@@ -52,18 +61,43 @@
 <script setup>
 import { onBeforeUnmount, onMounted, ref } from 'vue'
 import * as echarts from 'echarts'
-import { getStoreAnalysisData } from '../../api/analysis'
+import { getStoreAnalysisData, getStoreConsumption, getStartDate } from '../../api/analysis'
 import { getStores } from '../../api/system'
 
 const barChartRef = ref(null)
-const radarChartRef = ref(null)
+const consumptionChartRef = ref(null)
 const heatmapChartRef = ref(null)
 const selectedStoreId = ref('')
+const consumptionDate = ref('')
+const availableMonths = ref([])
 const storeList = ref([])
 
 let barChart
-let radarChart
+let consumptionChart
 let heatChart
+
+function generateMonthList(startDate) {
+  if (!startDate) return []
+  const [startYear, startMonth] = startDate.split('-').map(Number)
+  const now = new Date()
+  const endYear = now.getFullYear()
+  const endMonth = now.getMonth() + 1
+
+  const months = []
+  let year = startYear
+  let month = startMonth
+
+  while (year < endYear || (year === endYear && month <= endMonth)) {
+    months.push(`${year}-${String(month).padStart(2, '0')}`)
+    month++
+    if (month > 12) {
+      month = 1
+      year++
+    }
+  }
+
+  return months.reverse()
+}
 
 async function fetchStores() {
   const result = await getStores({ pageSize: 200 })
@@ -97,36 +131,33 @@ async function loadData() {
     ]
   })
 
-  if (!radarChart) radarChart = echarts.init(radarChartRef.value)
-  radarChart.setOption({
-    tooltip: {},
-    legend: { data: ['男性会员群', '女性会员群'], bottom: 0 },
-    radar: {
-      indicator: [
-        { name: '生鲜水果', max: 100 },
-        { name: '休闲零食', max: 100 },
-        { name: '酒水饮料', max: 100 },
-        { name: '日用洗护', max: 100 },
-        { name: '粮油副食', max: 100 },
-        { name: '熟食面包', max: 100 }
-      ]
+  if (!consumptionChart) consumptionChart = echarts.init(consumptionChartRef.value)
+  consumptionChart.setOption({
+    tooltip: {
+      trigger: 'axis',
+      axisPointer: { type: 'shadow' },
+      formatter(params) {
+        const item = params[0]
+        return `${item.name}<br/>累计消费：￥${Number(item.value || 0).toLocaleString('zh-CN', { minimumFractionDigits: 2 })}`
+      }
     },
+    grid: { left: '3%', right: '4%', bottom: '3%', containLabel: true },
+    xAxis: [
+      {
+        type: 'category',
+        data: [],
+        axisTick: { alignWithLabel: true },
+        axisLabel: { interval: 0, rotate: 15 }
+      }
+    ],
+    yAxis: [{ type: 'value', name: '消费金额(元)' }],
     series: [
       {
-        name: '品类偏好对比',
-        type: 'radar',
-        data: [
-          {
-            value: chartData.radar.male,
-            name: '男性会员群',
-            areaStyle: { color: 'rgba(64, 158, 255, 0.4)' }
-          },
-          {
-            value: chartData.radar.female,
-            name: '女性会员群',
-            areaStyle: { color: 'rgba(245, 108, 108, 0.4)' }
-          }
-        ]
+        name: '累计消费',
+        type: 'bar',
+        barWidth: '50%',
+        data: [],
+        itemStyle: { color: '#2563eb', borderRadius: [6, 6, 0, 0] }
       }
     ]
   })
@@ -157,22 +188,34 @@ async function loadData() {
   })
 }
 
+async function loadConsumptionData() {
+  const stores = await getStoreConsumption(consumptionDate.value)
+  if (!consumptionChart) consumptionChart = echarts.init(consumptionChartRef.value)
+  consumptionChart.setOption({
+    xAxis: { data: stores.map((s) => s.storeName) },
+    series: [{ data: stores.map((s) => Number(s.totalAmount || 0)) }]
+  })
+}
+
 function handleResize() {
   barChart?.resize()
-  radarChart?.resize()
+  consumptionChart?.resize()
   heatChart?.resize()
 }
 
 onMounted(async () => {
+  const startDate = await getStartDate()
+  availableMonths.value = generateMonthList(startDate)
   await fetchStores()
   await loadData()
+  await loadConsumptionData()
   window.addEventListener('resize', handleResize)
 })
 
 onBeforeUnmount(() => {
   window.removeEventListener('resize', handleResize)
   barChart?.dispose()
-  radarChart?.dispose()
+  consumptionChart?.dispose()
   heatChart?.dispose()
 })
 </script>
@@ -197,6 +240,12 @@ onBeforeUnmount(() => {
   font-weight: 700;
   font-size: 18px;
   color: #0f172a;
+}
+
+.card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .chart-row {

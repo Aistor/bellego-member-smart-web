@@ -136,7 +136,7 @@
 <script setup>
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import * as echarts from 'echarts'
-import { getMemberCategory, getMemberGrowth, getRfmStartDate } from '../../api/analysis'
+import { getMemberCategory, getMemberGrowth, getStartDate } from '../../api/analysis'
 
 const selectedMonth = ref('ALL')
 const availableMonths = ref([])
@@ -315,7 +315,7 @@ watch(selectedMonth, async () => {
 })
 
 onMounted(async () => {
-  const startDate = await getRfmStartDate()
+  const startDate = await getStartDate()
   availableMonths.value = generateMonthList(startDate)
   await loadData()
   window.addEventListener('resize', handleResize)
